@@ -1,0 +1,10 @@
+column_name
+auth_user_id
+created_at
+employee_code
+full_name
+id
+is_active
+password
+phone
+region_name

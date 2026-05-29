@@ -1,0 +1,32 @@
+{
+  "runtime": "V2",
+  "version": "0.1.0",
+  "schema": "v1",
+  "api": "supabase-rest-v1",
+  "buildTimestamp": "2026-05-24T04:00:00Z",
+  "migrationId": "20260524-initial-runtime",
+  "description": "Runtime V2 — Standalone Production Runtime",
+  "dependencies": {
+    "supabaseRest": "v1",
+    "pwaManifest": "v1",
+    "serviceWorker": "v1"
+  },
+  "invariants": [
+    "no-frontend-authority",
+    "no-stale-pricing",
+    "no-localStorage-authority",
+    "no-dom-data-encoding",
+    "no-cached-auth",
+    "generation-only-transition"
+  ],
+  "notes": {
+    "relativeImports": "ADR-001 — pending import map resolution",
+    "offlineQueue": "architecture ready, not enabled",
+    "authEliminated": "Supabase Auth fully eliminated; runtime_users is sole identity source",
+    "runtimeIsolation": "2026-05-28 — Phase 1: guest fallback root cause fixed — subscriber awaits hydrateIdentity then initRuntime + refreshActionSheet. Generation-gated subscriber prevents identity leakage. Subscriber _unsub captured, teardown cleans up. Registered after boot to avoid leak on crash.",
+    "uiAuthorityFix": "2026-05-28 — _renderButton() uses resolveProfile() instead of getSession(). _openSheet() uses profile.id !== 'guest'. Single runtime authority source.",
+    "navHub": "2026-05-28 — Profile items refactored: universal عملائي (customers) and فواتيري (invoices) appear in every authenticated account's action sheet. role-specific items separated from universal items from role actions. Guest untouched.",
+    "pricingRpc": "2026-05-28 — Migration 008 created: runtime_product_prices view (canonical pricing projection) + resolve_product_prices_batch RPC with customer tier resolution. Run via node run_migration.js",
+    "verificationScript": "2026-05-28 — runtime_verification.mjs written. Covers: login/hydration (all 6 accounts), refresh, logout/login switch, pricing fallback, hash storm, suspend/resume. Requires Playwright + dev server."
+  }
+}
