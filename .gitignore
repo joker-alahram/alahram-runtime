@@ -36,3 +36,26 @@ runtime_stabilization_*
 task_complete.txt
 error.txt
 output.txt
+# diagnostics
+_diag*.mjs
+_diagnose*.mjs
+_db_check*.mjs
+_full_validation.mjs
+_validate_remaining.mjs
+_clean_auth_refs.mjs
+
+# tests
+browser_test*.mjs
+runtime_e2e_real.js
+scratch/
+
+# admin tools
+get_users.mjs
+set_pw.mjs
+sync_auth.mjs
+
+# one-time checks
+check_logerror.mjs
+
+# reports
+reports/
