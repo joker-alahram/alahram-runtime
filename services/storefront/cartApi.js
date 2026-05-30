@@ -163,16 +163,20 @@ function _save(items) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch (e) { console.error('UNHANDLED ERROR:', e); throw e; }
 }
 
+function _dispatchCartEvent() {
+  try { window.dispatchEvent(new CustomEvent('cart-changed')); } catch {}
+}
+
 export function addItem(productId, unitId, qty = 1, extra = {}) {
   const items = getCartRaw();
   const idx = items.findIndex(i => i.pid === productId && i.puid === unitId);
   if (idx >= 0) { items[idx].qty += qty; } else { items.push({ pid: productId, puid: unitId, qty, ...extra }); }
-  _save(items); markDirty(); return items;
+  _save(items); markDirty(); _dispatchCartEvent(); return items;
 }
 
 export function removeItem(productId, unitId) {
   const items = getCartRaw().filter(i => !(i.pid === productId && i.puid === unitId));
-  _save(items); markDirty(); return items;
+  _save(items); markDirty(); _dispatchCartEvent(); return items;
 }
 
 export function updateQuantity(productId, unitId, qty) {
@@ -180,12 +184,13 @@ export function updateQuantity(productId, unitId, qty) {
   if (qty <= 0) return removeItem(productId, unitId);
   const item = items.find(i => i.pid === productId && i.puid === unitId);
   if (item) item.qty = qty;
-  _save(items); markDirty(); return items;
+  _save(items); markDirty(); _dispatchCartEvent(); return items;
 }
 
 export function clearCart() {
   try { localStorage.removeItem(STORAGE_KEY); } catch (e) { console.error('UNHANDLED ERROR:', e); throw e; }
   try { localStorage.removeItem(STATE_KEY); } catch (e) { console.error('UNHANDLED ERROR:', e); throw e; }
+  _dispatchCartEvent();
 }
 
 export function cartCount() {
@@ -297,6 +302,7 @@ export async function hydrateCart() {
   const hasErrors = priced.some(h => !h.price?.found || !h.product || !h.unit || (h.stock !== null && h.qty > h.stock));
   if (hasErrors) markInvalid(); else markClean();
 
+  _dispatchCartEvent();
   return priced;
 }
 

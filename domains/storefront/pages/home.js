@@ -73,109 +73,175 @@ export async function renderHome(contentEl) {
 
   const rv = _recentlyViewed();
 
-  contentEl.innerHTML = `<div class="v2-storefront">
-    <div class="v2-home-hero">
-      <h1>متجر الأهرام</h1>
-      <p>${isAuth ? `مرحباً ${_e(ses.actor?.fullName || '')}` : 'مرحباً بكم في متجر الأهرام'}</p>
-      <div class="v2-home-search">
-        <span class="v2-home-search-icon">🔍</span>
-        <input type="text" placeholder="ابحث عن المنتجات..." id="v2-home-search-input">
-      </div>
-    </div>
+  // Build company cards HTML to avoid deeply nested template literals
+  let companiesHtml = '';
+  if (companies.length) {
+    var _cards = companies.map(function(c, i) {
+      var img = c.company_logo_url || '';
+      var g = COMPANY_GRADIENTS[i % COMPANY_GRADIENTS.length];
+      var initial = c.company_name ? _e(c.company_name[0]) : 'ش';
+      var logo = img ? '<img src="' + _e(img) + '" alt="">' : '<span>' + initial + '</span>';
+      var code = c.company_code ? '<div class="v2-home-company-card-code">' + _e(c.company_code) + '</div>' : '';
+      return '<a href="#company/' + c.id + '" class="v2-home-company-card-lg">'
+        + '<div class="v2-home-company-card-logo" style="background:' + g + '">' + logo + '</div>'
+        + '<div class="v2-home-company-card-name">' + _e(c.company_name) + '</div>'
+        + code
+        + '</a>';
+    }).join('');
+    companiesHtml = '<div class="v2-home-section">'
+      + '<div class="v2-home-section-header"><h2>🏢 الشركات</h2><a href="#companies">عرض الكل</a></div>'
+      + '<div class="v2-home-grid v2-home-companies-grid">' + _cards + '</div></div>';
+  }
 
-    <div class="v2-home-quick-actions">
-      ${isAuth ? '<a href="#customers" class="v2-home-qa"><span>👥</span>عملائي</a>' : ''}
-      ${isAuth ? '<a href="#invoices" class="v2-home-qa"><span>📄</span>فواتيري</a>' : ''}
-      ${isAuth ? '<a href="#offers" class="v2-home-qa"><span>🏷️</span>العروض</a>' : ''}
-      <a href="#products" class="v2-home-qa"><span>📦</span>المنتجات</a>
-      <a href="#cart" class="v2-home-qa"><span>🛒</span>السلة${count ? ` (${count})` : ''}</a>
-    </div>
+  var fabHtml = count > 0
+    ? '<button class="v2-home-cart-fab" id="v2-home-cart-fab"><span>🛒</span><span class="v2-home-cart-fab-badge">' + (count > 99 ? '99+' : count) + '</span></button>'
+    : '';
 
-    ${dailyDeal.length ? `<div class="v2-home-section">
-      <div class="v2-home-section-header"><h2>🔥 عروض اليوم</h2><a href="#dailydeal">عرض الكل</a></div>
-      <div class="v2-home-hscroll">${dailyDeal.map(o => `<a href="#dailydeal" class="v2-home-offer-card" style="border-color:#ef4444;background:#fef2f2">
-        <span style="font-size:1.75rem">🔥</span>
-        <div class="v2-home-offer-title">${_e(o.title)}</div>
-        ${o.offer_price != null ? `<div class="v2-home-offer-price">${_money(o.offer_price)}</div>` : ''}
-        ${o.ends_at ? `<div class="v2-home-offer-timer" data-ends="${o.ends_at}">حتى ${_d(o.ends_at)}</div>` : ''}
-      </a>`).join('')}</div>
-    </div>` : ''}
+  var dailyDealHtml = '';
+  if (dailyDeal.length) {
+    var ddCards = dailyDeal.map(function(o) {
+      var price = o.offer_price != null ? '<div class="v2-home-offer-price">' + _money(o.offer_price) + '</div>' : '';
+      var timer = o.ends_at ? '<div class="v2-home-offer-timer" data-ends="' + o.ends_at + '">حتى ' + _d(o.ends_at) + '</div>' : '';
+      return '<a href="#dailydeal" class="v2-home-offer-card" style="border-color:#ef4444;background:#fef2f2">'
+        + '<span style="font-size:1.75rem">🔥</span>'
+        + '<div class="v2-home-offer-title">' + _e(o.title) + '</div>'
+        + price + timer + '</a>';
+    }).join('');
+    dailyDealHtml = '<div class="v2-home-section">'
+      + '<div class="v2-home-section-header"><h2>🔥 عروض اليوم</h2><a href="#dailydeal">عرض الكل</a></div>'
+      + '<div class="v2-home-hscroll">' + ddCards + '</div></div>';
+  }
 
-    ${flashOffer.length ? `<div class="v2-home-section">
-      <div class="v2-home-section-header"><h2>⚡ عروض فلاش</h2><a href="#flashoffer">عرض الكل</a></div>
-      <div class="v2-home-hscroll">${flashOffer.map(o => `<a href="#flashoffer" class="v2-home-offer-card" style="border-color:#f59e0b;background:#fffbeb">
-        <span style="font-size:1.75rem">⚡</span>
-        <div class="v2-home-offer-title">${_e(o.title)}</div>
-        ${o.offer_price != null ? `<div class="v2-home-offer-price">${_money(o.offer_price)}</div>` : ''}
-        ${o.starts_at && o.ends_at ? `<div class="v2-home-offer-timer">${_d(o.starts_at)} — ${_d(o.ends_at)}</div>` : ''}
-      </a>`).join('')}</div>
-    </div>` : ''}
+  var flashOfferHtml = '';
+  if (flashOffer.length) {
+    var foCards = flashOffer.map(function(o) {
+      var price = o.offer_price != null ? '<div class="v2-home-offer-price">' + _money(o.offer_price) + '</div>' : '';
+      var timer = o.starts_at && o.ends_at ? '<div class="v2-home-offer-timer">' + _d(o.starts_at) + ' — ' + _d(o.ends_at) + '</div>' : '';
+      return '<a href="#flashoffer" class="v2-home-offer-card" style="border-color:#f59e0b;background:#fffbeb">'
+        + '<span style="font-size:1.75rem">⚡</span>'
+        + '<div class="v2-home-offer-title">' + _e(o.title) + '</div>'
+        + price + timer + '</a>';
+    }).join('');
+    flashOfferHtml = '<div class="v2-home-section">'
+      + '<div class="v2-home-section-header"><h2>⚡ عروض فلاش</h2><a href="#flashoffer">عرض الكل</a></div>'
+      + '<div class="v2-home-hscroll">' + foCards + '</div></div>';
+  }
 
-    ${companies.length ? `<div class="v2-home-section">
-      <div class="v2-home-section-header"><h2>الشركات</h2><a href="#companies">عرض الكل</a></div>
-      <div class="v2-home-hscroll">${companies.map((c, i) => {
-        const initial = c.company_name ? _e(c.company_name[0]) : 'ش';
-        return `<a href="#company/${c.id}" class="v2-home-company-card">
-          <div class="v2-home-company-logo" style="background:${COMPANY_GRADIENTS[i % COMPANY_GRADIENTS.length]}">${initial}</div>
-          <div class="v2-home-company-name">${_e(c.company_name)}</div>
-          ${c.company_code ? `<div class="v2-home-company-count">${_e(c.company_code)}</div>` : ''}
-        </a>`;
-      }).join('')}</div>
-    </div>` : ''}
+  var companiesOldHtml = '';
+  if (companies.length) {
+    var coCards = companies.map(function(c, i) {
+      var initial = c.company_name ? _e(c.company_name[0]) : 'ش';
+      var code = c.company_code ? '<div class="v2-home-company-count">' + _e(c.company_code) + '</div>' : '';
+      return '<a href="#company/' + c.id + '" class="v2-home-company-card">'
+        + '<div class="v2-home-company-logo" style="background:' + COMPANY_GRADIENTS[i % COMPANY_GRADIENTS.length] + '">' + initial + '</div>'
+        + '<div class="v2-home-company-name">' + _e(c.company_name) + '</div>'
+        + code + '</a>';
+    }).join('');
+    companiesOldHtml = '<div class="v2-home-section">'
+      + '<div class="v2-home-section-header"><h2>الشركات</h2><a href="#companies">عرض الكل</a></div>'
+      + '<div class="v2-home-hscroll">' + coCards + '</div></div>';
+  }
 
-    ${mostRequested.length ? `<div class="v2-home-section">
-      <div class="v2-home-section-header"><h2>الأكثر طلباً</h2><a href="#products">عرض الكل</a></div>
-      <div class="v2-home-grid">${mostRequested.slice(0, 6).map(p => `<a href="#products/${p.product_id}" class="v2-home-product-card v2-home-product-card-sm">
-        <div class="v2-home-product-body">
-          <div class="v2-home-product-name" style="font-size:.8125rem">${_e(p.product_name_snapshot || 'منتج')}</div>
-          <div class="v2-home-product-price">${_n(p.count || 0)} طلب</div>
-        </div>
-      </a>`).join('')}</div>
-    </div>` : ''}
+  var mrHtml = '';
+  if (mostRequested.length) {
+    mrHtml = '<div class="v2-home-section">'
+      + '<div class="v2-home-section-header"><h2>الأكثر طلباً</h2><a href="#products">عرض الكل</a></div>'
+      + '<div class="v2-home-grid">'
+      + mostRequested.slice(0, 6).map(function(p) {
+        return '<a href="#products/' + p.product_id + '" class="v2-home-product-card v2-home-product-card-sm">'
+          + '<div class="v2-home-product-body">'
+          + '<div class="v2-home-product-name" style="font-size:.8125rem">' + _e(p.product_name_snapshot || 'منتج') + '</div>'
+          + '<div class="v2-home-product-price">' + _n(p.count || 0) + ' طلب</div>'
+          + '</div></a>';
+      }).join('')
+      + '</div></div>';
+  }
 
-    ${products.length ? `<div class="v2-home-section">
-      <div class="v2-home-section-header"><h2>🆕 أحدث المنتجات</h2><a href="#products">عرض الكل</a></div>
-      <div class="v2-home-grid">${products.map(p => {
-        const img = p.product_image_url || '';
-        const initial = p.product_name ? _e(p.product_name[0]) : 'ش';
-        return `<a href="#products/${p.id}" class="v2-home-product-card">
-          <div class="v2-home-product-img">${img ? `<img src="${_e(img)}" alt="${_e(p.product_name)}" loading="lazy">` : `<span style="font-size:2rem;opacity:.3">${initial}</span>`}</div>
-          <div class="v2-home-product-body">
-            <div class="v2-home-product-name">${_e(p.product_name)}</div>
-            ${p.company_name_snapshot ? `<div style="font-size:.6875rem;color:var(--v2-text2);margin-top:.125rem">${_e(p.company_name_snapshot)}</div>` : ''}
-            <div class="v2-home-product-price v2-pc-price-loading">—</div>
-          </div>
-        </a>`;
-      }).join('')}</div>
-    </div>` : ''}
+  var productsHtml = '';
+  if (products.length) {
+    productsHtml = '<div class="v2-home-section">'
+      + '<div class="v2-home-section-header"><h2>🆕 أحدث المنتجات</h2><a href="#products">عرض الكل</a></div>'
+      + '<div class="v2-home-grid">'
+      + products.map(function(p) {
+        var img = p.product_image_url || '';
+        var initial = p.product_name ? _e(p.product_name[0]) : 'ش';
+        var company = p.company_name_snapshot ? '<div style="font-size:.6875rem;color:var(--v2-text2);margin-top:.125rem">' + _e(p.company_name_snapshot) + '</div>' : '';
+        return '<a href="#products/' + p.id + '" class="v2-home-product-card">'
+          + '<div class="v2-home-product-img">' + (img ? '<img src="' + _e(img) + '" alt="' + _e(p.product_name) + '" loading="lazy">' : '<span style="font-size:2rem;opacity:.3">' + initial + '</span>') + '</div>'
+          + '<div class="v2-home-product-body">'
+          + '<div class="v2-home-product-name">' + _e(p.product_name) + '</div>'
+          + company
+          + '<div class="v2-home-product-price v2-pc-price-loading">—</div>'
+          + '</div></a>';
+      }).join('')
+      + '</div></div>';
+  }
 
-    ${specialOffers.length ? `<div class="v2-home-section">
-      <div class="v2-home-section-header"><h2>عروض خاصة</h2><a href="#offers">عرض الكل</a></div>
-      <div class="v2-home-hscroll">${specialOffers.map(o => `<a href="#offers" class="v2-home-offer-card" style="border-color:#8b5cf6;background:#f5f3ff">
-        <span style="font-size:1.75rem">🏷️</span>
-        <div class="v2-home-offer-title">${_e(o.title)}</div>
-        ${o.offer_price != null ? `<div class="v2-home-offer-price">${_money(o.offer_price)}</div>` : ''}
-        ${o.description ? `<div style="font-size:.6875rem;color:var(--v2-text2)">${_e(o.description.slice(0, 40))}</div>` : ''}
-      </a>`).join('')}</div>
-    </div>` : ''}
+  var spHtml = '';
+  if (specialOffers.length) {
+    spHtml = '<div class="v2-home-section">'
+      + '<div class="v2-home-section-header"><h2>عروض خاصة</h2><a href="#offers">عرض الكل</a></div>'
+      + '<div class="v2-home-hscroll">'
+      + specialOffers.map(function(o) {
+        var price = o.offer_price != null ? '<div class="v2-home-offer-price">' + _money(o.offer_price) + '</div>' : '';
+        var desc = o.description ? '<div style="font-size:.6875rem;color:var(--v2-text2)">' + _e(o.description.slice(0, 40)) + '</div>' : '';
+        return '<a href="#offers" class="v2-home-offer-card" style="border-color:#8b5cf6;background:#f5f3ff">'
+          + '<span style="font-size:1.75rem">🏷️</span>'
+          + '<div class="v2-home-offer-title">' + _e(o.title) + '</div>'
+          + price + desc + '</a>';
+      }).join('')
+      + '</div></div>';
+  }
 
-    ${rv.length ? `<div class="v2-home-section">
-      <div class="v2-home-section-header"><h2>🕒 تم التصفح مؤخراً</h2></div>
-      <div class="v2-home-hscroll">${rv.slice(0, 8).map(p => `<a href="#products/${p.id}" class="v2-home-company-card" style="min-width:80px">
-        <div style="font-size:1.25rem;margin-bottom:.25rem;text-align:center">📦</div>
-        <div class="v2-home-company-name" style="font-size:.75rem">${_e(p.name || '')}</div>
-      </a>`).join('')}</div>
-    </div>` : ''}
+  var rvHtml = '';
+  if (rv.length) {
+    rvHtml = '<div class="v2-home-section">'
+      + '<div class="v2-home-section-header"><h2>🕒 تم التصفح مؤخراً</h2></div>'
+      + '<div class="v2-home-hscroll">'
+      + rv.slice(0, 8).map(function(p) {
+        return '<a href="#products/' + p.id + '" class="v2-home-company-card" style="min-width:80px">'
+          + '<div style="font-size:1.25rem;margin-bottom:.25rem;text-align:center">📦</div>'
+          + '<div class="v2-home-company-name" style="font-size:.75rem">' + _e(p.name || '') + '</div>'
+          + '</a>';
+      }).join('')
+      + '</div></div>';
+  }
 
-    ${!isAuth ? `<div class="v2-home-section" style="text-align:center;padding:2rem 1rem">
-      <p style="margin-bottom:1rem;color:var(--v2-text2)">سجل الدخول للاستفادة من العروض الحصرية والمتابعة</p>
-      <a href="#login" class="v2-btn v2-btn-p" style="border-radius:12px;padding:.75rem 2rem;font-size:.9375rem">تسجيل الدخول</a>
-      <a href="#register" class="v2-btn" style="border-radius:12px;padding:.75rem 2rem;font-size:.9375rem;margin-top:.5rem;display:inline-block;border:1px solid var(--v2-border);background:var(--v2-surface)">إنشاء حساب</a>
-    </div>` : ''}
+  var authHtml = !isAuth
+    ? '<div class="v2-home-section" style="text-align:center;padding:2rem 1rem">'
+      + '<p style="margin-bottom:1rem;color:var(--v2-text2)">سجل الدخول للاستفادة من العروض الحصرية والمتابعة</p>'
+      + '<a href="#login" class="v2-btn v2-btn-p" style="border-radius:12px;padding:.75rem 2rem;font-size:.9375rem">تسجيل الدخول</a>'
+      + '<a href="#register" class="v2-btn" style="border-radius:12px;padding:.75rem 2rem;font-size:.9375rem;margin-top:.5rem;display:inline-block;border:1px solid var(--v2-border);background:var(--v2-surface)">إنشاء حساب</a>'
+      + '</div>'
+    : '';
 
-    <div style="height:5rem"></div>
-    ${count > 0 ? `<button class="v2-home-cart-fab" onclick="location.hash='#cart'"><span>🛒</span><span class="v2-home-cart-fab-badge">${count > 99 ? '99+' : count}</span></button>` : ''}
-  </div>`;
+  contentEl.innerHTML = '<div class="v2-storefront">'
+    + '<div class="v2-home-hero">'
+    + '<h1>متجر الأهرام</h1>'
+    + '<p>' + (isAuth ? 'مرحباً ' + _e(ses.actor?.fullName || '') : 'مرحباً بكم في متجر الأهرام') + '</p>'
+    + '<div class="v2-home-search">'
+    + '<span class="v2-home-search-icon">🔍</span>'
+    + '<input type="text" placeholder="ابحث عن شركة أو منتج..." id="v2-home-search-input">'
+    + '</div></div>'
+    + '<div class="v2-home-quick-actions">'
+    + (isAuth ? '<a href="#customers" class="v2-home-qa"><span>👥</span>عملائي</a>' : '')
+    + (isAuth ? '<a href="#invoices" class="v2-home-qa"><span>📄</span>فواتيري</a>' : '')
+    + (isAuth ? '<a href="#offers" class="v2-home-qa"><span>🏷️</span>العروض</a>' : '')
+    + '<a href="#companies" class="v2-home-qa"><span>🏢</span>الشركات</a>'
+    + '<a href="#cart" class="v2-home-qa"><span>🛒</span>السلة' + (count ? ' (' + count + ')' : '') + '</a>'
+    + '</div>'
+    + companiesHtml
+    + dailyDealHtml
+    + flashOfferHtml
+    + companiesOldHtml
+    + mrHtml
+    + productsHtml
+    + spHtml
+    + rvHtml
+    + authHtml
+    + '<div style="height:5rem"></div>'
+    + fabHtml
+    + '</div>';
 
   contentEl.querySelector('#v2-home-search-input')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
@@ -185,6 +251,8 @@ export async function renderHome(contentEl) {
   });
 
   _lazyHomePrices(contentEl, products);
+
+  contentEl.querySelector('#v2-home-cart-fab')?.addEventListener('click', () => { location.hash = '#cart'; });
 }
 
 async function _lazyHomePrices(el, products) {

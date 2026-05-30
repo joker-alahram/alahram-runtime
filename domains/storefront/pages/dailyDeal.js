@@ -1,5 +1,6 @@
 import { readConfig } from '../../../config.js';
 import { getSession } from '../../../auth/sessionService.js';
+import { productCardHtml, bindProductCards } from '../../../runtime/components/productCard.js';
 
 const API = readConfig().baseUrl;
 
@@ -20,21 +21,23 @@ export async function renderDailyDealPage(container) {
       container.innerHTML = '<div class="v2-page"><div class="v2-empty"><p>لا توجد صفقات اليوم</p></div></div>';
       return;
     }
-    container.innerHTML = `<div class="v2-page"><h1 class="v2-page-title">صفقة اليوم</h1><div class="v2-deals-grid">${deals.map(d => `
-      <div class="v2-deal-card">
-        ${d.image ? `<img src="${_e(d.image)}" alt="${_e(d.title)}" class="v2-deal-img">` : '<div class="v2-deal-img-placeholder">🎯</div>'}
-        <div class="v2-deal-body">
-          <h3>${_e(d.title)}</h3>
-          ${d.description ? `<p>${_e(d.description)}</p>` : ''}
-          <div class="v2-deal-price">${_money(d.price)}</div>
-          <button class="v2-btn v2-btn-p" style="border-radius:12px;width:100%">شراء</button>
-        </div>
-      </div>
-    `).join('')}</div></div>`;
+    container.innerHTML = `<div class="v2-page"><h1 class="v2-page-title">صفقة اليوم</h1><div class="v2-pc-grid">${deals.map(d => _dealCard(d)).join('')}</div></div>`;
+    const grid = container.querySelector('.v2-pc-grid');
+    if (grid) bindProductCards(grid);
   } catch {
     container.innerHTML = '<div class="v2-page"><div class="v2-empty"><p>صفقة اليوم غير مفعلة حالياً</p></div></div>';
   }
 }
 
+function _dealCard(d) {
+  return productCardHtml({
+    pid: 'deal_' + d.id,
+    name: d.title || 'صفقة اليوم',
+    code: '',
+    imageUrl: d.image || '',
+    price: d.price != null ? d.price : null,
+    offer: { type: 'daily_deal' },
+  });
+}
+
 function _e(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-function _money(n) { if (n == null) return '0 ج.م'; return Number(n).toLocaleString('en-US') + ' ج.م'; }

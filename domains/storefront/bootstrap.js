@@ -31,6 +31,7 @@ import { getCartRaw } from '../../services/storefront/cartApi.js';
 import { readConfig } from '../../config.js';
 import { hydrateIdentity, clearIdentity, getIdentity } from '../../services/storefront/governanceRuntime.js';
 import { renderGlobalSearch, destroyGlobalSearch } from './components/globalSearch.js';
+import { renderFloatingBar, destroyFloatingBar } from '../../runtime/components/mobile-floating-bar.js';
 import { renderHome } from './pages/home.js';
 import { emit, EVENTS } from '../../services/runtime/eventBus.js';
 import { declareAuthority, DOMAINS } from '../../services/runtime/storageGovernance.js';
@@ -184,7 +185,7 @@ function render() {
 
    const bottomLinks = [
      { hash: '#home', icon: '🏠', label: 'الرئيسية' },
-     { hash: '#products', icon: '📦', label: 'المنتجات' },
+     { hash: '#companies', icon: '🏢', label: 'الشركات' },
      { hash: '#cart', icon: '🛒', label: 'السلة', badge: count },
    ];
    if (ses?.status === 'authenticated') {
@@ -236,6 +237,13 @@ function render() {
    if (!hideNav) {
      const gsContainer = document.getElementById('v2-gs-container');
      if (gsContainer) renderGlobalSearch(gsContainer);
+   }
+
+   // Floating order summary bar
+   destroyFloatingBar();
+   if (!hideNav && route.name !== 'cart' && route.name !== 'invoice' && route.name !== 'checkout') {
+     const shell = _container.querySelector('.v2-sf-shell');
+     if (shell) renderFloatingBar(shell);
    }
 
    // Bind action sheet trigger in bottom nav
