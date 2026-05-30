@@ -6,6 +6,7 @@ import { emit, EVENTS } from '../runtime/eventBus.js';
 import { orchestratedFetch } from '../runtime/requestOrchestrator.js';
 import { startSpan, recordMetric } from '../runtime/runtimeTelemetry.js';
 import { getSelectedCustomer } from './cartApi.js';
+import { logTimelineEvent } from './orderTimelineApi.js';
 
 const API = readConfig().baseUrl;
 
@@ -223,6 +224,7 @@ export async function createOrder(items, total, geo) {
     const result = { order, items: Array.isArray(saved) ? saved : itemRows };
 
     _clearLock();
+    try { await logTimelineEvent(order.id, 'order_created', { newValue: { order_number: orderNumber, total: order.total_amount } }); } catch (_) {}
     emit(EVENTS.INVOICE_CREATED, { orderId: order.id, orderNumber, total: order.total_amount, customerId: ses?.actor?.id });
     span.end({ orderId: order.id, orderNumber, itemCount: itemRows.length, ok: true });
     recordMetric('invoice_generation_ms', span.duration || 0);
@@ -248,19 +250,25 @@ export async function updateOrder(orderId, items, totals, geo, notes) {
 
   const span = startSpan('update_order');
 
-  // Fetch current order to get revision
-  const currentRes = await orchestratedFetch(`${API}/orders?id=eq.${orderId}&select=revision,runtime_metadata`, {
+  // Fetch current order to get revision + current items for change tracking
+  const currentRes = await orchestratedFetch(`${API}/orders?id=eq.${orderId}&select=revision,runtime_metadata,order_number,order_status`, {
     method: 'GET', headers: _headers(), dedup: true, tag: 'order_current',
   });
   let currentRevision = 0;
   let existingMetadata = {};
+  let currentOrderStatus = 'submitted';
   if (currentRes.ok) {
     const rows = await currentRes.json();
     if (rows.length) {
       currentRevision = rows[0].revision || 0;
       existingMetadata = rows[0].runtime_metadata || {};
+      currentOrderStatus = rows[0].order_status || 'submitted';
     }
   }
+
+  // Fetch old items for change diff
+  const oldItemsRes = await fetch(`${API}/order_items?order_id=eq.${orderId}&select=id,product_id,product_unit_id,quantity,base_price,final_price,product_name_snapshot,product_code_snapshot`, { headers: _headers() });
+  const oldItems = oldItemsRes.ok ? await oldItemsRes.json() : [];
 
   const now = new Date().toISOString();
   const newRevision = currentRevision + 1;
@@ -373,6 +381,48 @@ export async function updateOrder(orderId, items, totals, geo, notes) {
   }
 
   const result = { order: updatedOrder, items: Array.isArray(saved) ? saved : itemRows };
+
+  // Build timeline change details
+  const changeDetails = [];
+  const oldMap = {};
+  (oldItems || []).forEach(o => { oldMap[o.product_id + '|' + (o.product_unit_id || '')] = o; });
+  const newMap = {};
+  items.forEach(n => { newMap[n.pid + '|' + (n.puid || '')] = n; });
+
+  // Detect removed items
+  Object.keys(oldMap).forEach(k => {
+    if (!newMap[k]) {
+      const o = oldMap[k];
+      changeDetails.push({ type: 'REMOVE_ITEM', product_name: o.product_name_snapshot, product_code: o.product_code_snapshot, old_quantity: o.quantity });
+    }
+  });
+  // Detect added and changed items
+  Object.keys(newMap).forEach(k => {
+    const n = newMap[k];
+    const o = oldMap[k];
+    if (!o) {
+      changeDetails.push({ type: 'ADD_ITEM', product_name: n.product?.product_name || n.name || '', product_code: n.product?.product_code || n.code || '', new_quantity: n.qty });
+    } else if (Number(o.quantity) !== Number(n.qty)) {
+      changeDetails.push({ type: 'QTY_CHANGE', product_name: o.product_name_snapshot, product_code: o.product_code_snapshot, old_quantity: o.quantity, new_quantity: n.qty });
+    }
+    // Detect price changes
+    if (o) {
+      const oldPrice = Number(o.final_price);
+      const newPrice = Number(n.price?.final_price);
+      if (oldPrice !== newPrice) {
+        changeDetails.push({ type: 'PRICE_CHANGE', product_name: o.product_name_snapshot, product_code: o.product_code_snapshot, old_price: oldPrice, new_price: newPrice });
+      }
+    }
+  });
+
+  // Log timeline event
+  try {
+    await logTimelineEvent(orderId, 'order_edited', {
+      oldValue: { revision: currentRevision, order_status: currentOrderStatus },
+      newValue: { revision: newRevision, order_status: currentOrderStatus },
+      changeDetails: changeDetails.length > 0 ? changeDetails : null,
+    });
+  } catch (_) { /* non-blocking */ }
 
   emit(EVENTS.INVOICE_UPDATED, { orderId, revision: newRevision, itemCount: itemRows.length });
   span.end({ orderId, revision: newRevision, itemCount: itemRows.length, ok: true });

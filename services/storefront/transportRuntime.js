@@ -10,7 +10,7 @@ export function buildWhatsAppMessage(vm) {
 
   let msg = `🏢 ${vm.company.name}\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `📄 فاتورة شراء رقم ${vm.invoice.number}\n\n`;
+  msg += `📄 ${vm.invoice.docType} رقم ${vm.invoice.number}\n\n`;
 
   msg += `┌─ ❲ معلومات العميل ❳ ─┐\n`;
   msg += `الاسم: ${vm.customer.name}\n`;
@@ -18,7 +18,7 @@ export function buildWhatsAppMessage(vm) {
   if (vm.customer.address) msg += `العنوان: ${vm.customer.address}\n`;
   if (vm.customer.locationLink) msg += `الموقع: ${vm.customer.locationLink}\n`;
 
-  msg += `\n┌─ ❲ منشئ الفاتورة ❳ ─┐\n`;
+  msg += `\n┌─ ❲ مندوب المبيعات ❳ ─┐\n`;
   msg += `الاسم: ${vm.creator.name}\n`;
   if (vm.creator.phone) msg += `الهاتف: ${vm.creator.phone}\n`;
   if (vm.creator.address) msg += `العنوان: ${vm.creator.address}\n`;
@@ -26,22 +26,31 @@ export function buildWhatsAppMessage(vm) {
   msg += `\n━━━━━━━━━━━━━━━━━━━━━━\n`;
   msg += `📦 بيان الطلب\n\n`;
 
-  for (const item of vm.items) {
-    const name = item.product_name_snapshot || '';
-    const code = item.product_code_snapshot || '';
-    const unit = item.unit_name_snapshot || 'قطعة';
-    const qty = Number(item.quantity || 1);
-    const price = Number(item.final_price || 0);
-    const discPct = Number(item.discount_percent || 0);
-    const tier = item.tier_name_snapshot || '';
-    const lineTotal = qty * price;
+  const groups = vm.groupedItems && vm.groupedItems.length ? vm.groupedItems : (vm.items ? [{ companyName: 'المنتجات', items: vm.items }] : []);
+  for (const group of groups) {
+    let groupTotal = 0;
+    const items = Array.isArray(group.items) ? group.items : [];
+    if (items.length === 0) continue;
+    msg += `◈ ${group.companyName} (${items.length} أصناف)\n`;
+    for (const item of items) {
+      const name = item.product_name_snapshot || '';
+      const code = item.product_code_snapshot || '';
+      const unit = item.unit_name_snapshot || 'قطعة';
+      const qty = Number(item.quantity || 1);
+      const price = Number(item.final_price || 0);
+      const discPct = Number(item.discount_percent || 0);
+      const tier = item.tier_name_snapshot || '';
+      const lineTotal = qty * price;
+      groupTotal += lineTotal;
 
-    msg += `▸ ${name}\n`;
-    msg += `  كود: ${code || '—'}\n`;
-    if (tier && tier !== 'base') msg += `  🏷️ ${tier}\n`;
-    if (discPct > 0) msg += `  🔥 خصم ${discPct}%\n`;
-    msg += `  الكمية: ${qty} ${unit} | السعر: ${_money(price)}\n`;
-    msg += `  الإجمالي: ${_money(lineTotal)}\n\n`;
+      msg += `▸ ${name}\n`;
+      msg += `  كود: ${code || '—'}\n`;
+      if (tier && tier !== 'base') msg += `  🏷️ ${tier}\n`;
+      if (discPct > 0) msg += `  🔥 خصم ${discPct}%\n`;
+      msg += `  الكمية: ${qty} ${unit} | السعر: ${_money(price)}\n`;
+      msg += `  الإجمالي: ${_money(lineTotal)}\n\n`;
+    }
+    msg += `  ───── ${_money(groupTotal)} ─────\n\n`;
   }
 
   msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;

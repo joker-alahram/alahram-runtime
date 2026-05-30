@@ -149,9 +149,9 @@ export async function renderOpsDashboard(container) {
       <!-- Operational Rankings: Today / This Week -->
       <div class="v2-dash-section-header"><h3>⚡ آخر الطلبات</h3></div>
       ${allOrders.length === 0 ? '<p style="color:#6b7280;font-size:.875rem">لا توجد طلبات حديثة</p>' : `<div class="v2-inv-scroll"><table class="v2-inv-tbl"><thead><tr><th>رقم الطلب</th><th>العميل</th><th>المندوب</th><th>التاريخ</th><th>الإجمالي</th><th>الحالة</th></tr></thead><tbody>${allOrders.map(o => `<tr>
-        <td><a href="#ops/orders/${o.id}">${_e(o.order_number)}</a><div style="font-size:.72rem;color:#6b7280">${_e(o.created_by_name || o.created_by_name_snapshot || '—')}</div></td>
-        <td>${_e(o.customer_name || o.customer_name_snapshot || '—')}</td>
-        <td>${_e(o.rep_name || o.sales_rep_name || o.created_by_name || o.created_by_name_snapshot || '—')}</td>
+        <td><a href="#ops/orders/${o.id}">${_e(o.order_number)}</a></td>
+        <td>${_e(o.customer_name_snapshot || '—')}${o.customer_phone_snapshot ? '<br><small>' + _e(o.customer_phone_snapshot) + '</small>' : ''}</td>
+        <td>${_e(o.created_by_name_snapshot || '—')}${o.created_by_phone_snapshot ? '<br><small>' + _e(o.created_by_phone_snapshot) + '</small>' : ''}</td>
         <td>${_d(o.created_at)}</td>
         <td>${_money(o.total_amount)}</td>
         <td><span class="v2-badge ${o.order_status === 'cancelled' ? 'v2-badge-no' : o.order_status === 'delivered' ? 'v2-badge-ok' : o.order_status === 'approved' ? 'v2-badge-success' : 'v2-badge-info'}">${_e(o.order_status || '')}</span></td>

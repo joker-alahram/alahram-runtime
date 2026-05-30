@@ -44,14 +44,22 @@ export async function renderOrdersPage(container) {
 function _orderItem(o) {
   const statusLabel = _statusText(o.order_status);
   const statusClass = _statusClass(o.order_status);
+  const docType = _docTitle(o.order_status);
+  const repName = o.created_by_name_snapshot || '';
+  const repPhone = o.created_by_phone_snapshot || '';
+  const custName = o.customer_name_snapshot || '';
+  const custPhone = o.customer_phone_snapshot || '';
+  const custAddr = o.customer_address_snapshot || '';
   return '<a href="#invoices/' + o.id + '" class="v2-order-item">'
     + '<div class="v2-order-item-header">'
-    + '<span class="v2-order-number">' + _e(o.order_number || '') + '</span>'
+    + '<span class="v2-order-number">' + docType + ' ' + _e(o.order_number || '') + '</span>'
     + '<span class="v2-order-status v2-order-status-' + statusClass + '">' + statusLabel + '</span>'
     + '</div>'
     + '<div class="v2-order-item-body">'
     + '<div class="v2-order-date">' + _e(o.created_at ? o.created_at.slice(0, 10) : '') + '</div>'
-    + ((o.created_by_name || o.created_by_name_snapshot) ? '<div class="v2-order-company">' + _e(o.created_by_name || o.created_by_name_snapshot) + '</div>' : '')
+    + (custName ? '<div class="v2-order-company">👤 ' + _e(custName) + (custPhone ? ' - ' + _e(custPhone) : '') + '</div>' : '')
+    + (custAddr ? '<div class="v2-order-company" style="color:#6b7280">📍 ' + _e(custAddr) + '</div>' : '')
+    + (repName ? '<div class="v2-order-company">🧑‍💼 ' + _e(repName) + (repPhone ? ' - ' + _e(repPhone) : '') + '</div>' : '')
     + '<div class="v2-order-total">' + _money(o.total_amount) + '</div>'
     + '</div>'
     + (o.note ? '<div class="v2-order-notes">' + _e(o.note) + '</div>' : '')
@@ -70,3 +78,7 @@ function _statusClass(s) {
 
 function _e(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function _money(n) { if (n == null) return ''; return Number(n).toLocaleString('en-US') + ' ج.م'; }
+function _docTitle(status) {
+  const s = String(status || '').trim().toLowerCase();
+  return ['pending', 'reviewing', 'submitted'].includes(s) ? 'طلب شراء' : 'فاتورة';
+}

@@ -139,7 +139,7 @@ async function _reportDailySales() {
   rows.forEach(r => total += Number(r.total_amount || 0));
   return `<div class="v2-rpt-summary">إجمالي مبيعات اليوم: ${_money(total)} (${_n(rows.length)} طلب)</div>
     <div class="v2-inv-scroll"><table class="v2-inv-tbl"><thead><tr><th>رقم الطلب</th><th>العميل</th><th>المندوب</th><th>المبلغ</th></tr></thead><tbody>
-    ${rows.map(r => `<tr><td>${_e(r.order_number || r.id?.slice(0,8))}</td><td>${_e(r.customer_name)}</td><td>${_e(r.rep_name || '—')}</td><td class="v2-inv-num">${_money(r.total_amount)}</td></tr>`).join('')}
+    ${rows.map(r => `<tr><td>${_e(r.order_number || '—')}</td><td>${_e(r.customer_name)}</td><td>${_e(r.rep_name || '—')}</td><td class="v2-inv-num">${_money(r.total_amount)}</td></tr>`).join('')}
     </tbody></table></div>`;
 }
 

@@ -1,10 +1,11 @@
-import { getCartRaw, hydrateCart, computeTotals, validateCart, clearCart, acquireCheckoutLock, releaseCheckoutLock, getCartMachineState, CART_STATE, isEditMode, getEditOrderId, clearEditOrderId } from '../../../services/storefront/cartApi.js';
+import { getCartRaw, hydrateCart, computeTotals, validateCart, clearCart, acquireCheckoutLock, releaseCheckoutLock, getCartMachineState, CART_STATE, isEditMode, getEditOrderId, clearEditOrderId, getSelectedCustomer } from '../../../services/storefront/cartApi.js';
 import { createInvoiceRuntime, updateInvoiceRuntime, clearGeoCache } from '../../../services/storefront/invoiceRuntime.js';
 import { buildWhatsAppMessage, openWhatsApp } from '../../../services/storefront/transportRuntime.js';
 import { getSession } from '../../../auth/sessionService.js';
 import { logError } from '../../../utils/logger.js';
 import { renderGuidanceCard, toast } from '../../../runtime/guidance.js';
 import { formatStatus } from '../../../services/storefront/invoicesApi.js';
+import { groupItemsByCompany, getProductName, getProductCode, getQuantity, getFinalPrice, getUnitName, getLineTotal, computeGroupSubtotal } from '../../../services/storefront/groupItems.js';
 
 let _hydrated = [];
 
@@ -49,6 +50,7 @@ function _render(container, hydrated, barrier) {
   const totals = computeTotals(hydrated);
   const blocked = barrier.blocked;
   const edit = isEditMode();
+  const selectedCust = getSelectedCustomer();
 
   container.innerHTML = `<div class="v2-co">
     <nav class="v2-co-nav"><a href="#cart" class="v2-co-back">← ${edit ? 'العودة' : 'العودة للسلة'}</a></nav>
@@ -57,14 +59,20 @@ function _render(container, hydrated, barrier) {
 
     <div class="v2-co-guidance" id="v2-co-guidance"></div>
 
+    ${selectedCust ? `<div class="v2-co-card">
+      <div class="v2-co-ch">العميل</div>
+      <div class="v2-co-body">
+        <div class="v2-co-row"><span>الاسم</span><span>${_e(selectedCust.name || '')}</span></div>
+        ${selectedCust.phone ? `<div class="v2-co-row"><span>الهاتف</span><span dir="ltr">${_e(selectedCust.phone)}</span></div>` : ''}
+        ${selectedCust.address ? `<div class="v2-co-row"><span>العنوان</span><span>${_e(selectedCust.address)}</span></div>` : ''}
+      </div>
+    </div>` : ''}
+
     <div class="v2-co-card">
-      <div class="v2-co-ch">معلومات المُرسل</div>
+      <div class="v2-co-ch">مندوب المبيعات</div>
       <div class="v2-co-body">
         <div class="v2-co-row"><span>الاسم</span><span>${_e(ses?.actor?.fullName || 'غير معروف')}</span></div>
-        ${ses?.actor?.phone ? `<div class="v2-co-row"><span>الهاتف</span><span>${_e(ses.actor.phone)}</span></div>` : ''}
-        ${ses?.actor?.address ? `<div class="v2-co-row"><span>العنوان</span><span>${_e(ses.actor.address)}</span></div>` : ''}
-        ${ses?.role?.roleName ? `<div class="v2-co-row"><span>الشريحة</span><span>${_e(ses.role.roleName)}</span></div>` : ''}
-        ${ses?.actor?.branchName ? `<div class="v2-co-row"><span>الفرع</span><span>${_e(ses.actor.branchName)}</span></div>` : ''}
+        ${ses?.actor?.phone ? `<div class="v2-co-row"><span>الهاتف</span><span dir="ltr">${_e(ses.actor.phone)}</span></div>` : ''}
       </div>
     </div>
 
@@ -72,9 +80,38 @@ function _render(container, hydrated, barrier) {
       <div class="v2-co-ch">الأصناف (${hydrated.length})</div>
       <div class="v2-co-body" style="padding:0">
         <table class="v2-co-table">
-          <thead><tr><th>الصنف</th><th>الوحدة</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr></thead>
-          <tbody>${hydrated.map(item => _itemRow(item)).join('')}</tbody>
-          <tfoot><tr class="v2-co-grand"><td colspan="4" style="text-align:left;">إجمالي الفاتورة</td><td>${_money(totals.grand)}</td></tr></tfoot>
+          <thead><tr><th>كود الصنف</th><th>اسم الصنف</th><th>الوحدة</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr></thead>
+          <tbody>${(() => {
+            const groups = groupItemsByCompany(hydrated);
+            let gHtml = '';
+            let grandTotal = 0;
+            for (const group of groups) {
+              const groupSubtotal = computeGroupSubtotal(group.items);
+              grandTotal += groupSubtotal;
+              gHtml += '<tr style="background:#eef2ff;font-weight:700;text-align:right"><td colspan="6" style="padding:6px 10px;color:#0d2b6b;border-bottom:2px solid #0052cc">' + _e(group.companyName) + ' (' + group.items.length + ' أصناف)</td></tr>';
+              for (const item of group.items) {
+                const code = getProductCode(item);
+                const name = getProductName(item);
+                const unit = getUnitName(item);
+                const qty = getQuantity(item);
+                const price = getFinalPrice(item);
+                const lineTotal = getLineTotal(item);
+                gHtml += '<tr>'
+                  + '<td style="font-family:monospace;direction:ltr;font-size:.8125rem">' + _e(code || '—') + '</td>'
+                  + '<td>' + _e(name) + '</td>'
+                  + '<td>' + _e(unit) + '</td>'
+                  + '<td>' + qty + '</td>'
+                  + '<td>' + _money(price) + '</td>'
+                  + '<td>' + _money(lineTotal) + '</td>'
+                  + '</tr>';
+              }
+              if (groups.length > 1) {
+                gHtml += '<tr style="background:#f8f9fa;font-weight:600"><td colspan="5" style="text-align:left;border-top:1px solid #0052cc">إجمالي ' + _e(group.companyName) + '</td><td style="border-top:1px solid #0052cc">' + _money(groupSubtotal) + '</td></tr>';
+              }
+            }
+            return gHtml;
+          })()}</tbody>
+          <tfoot><tr class="v2-co-grand"><td colspan="5" style="text-align:left;">إجمالي الفاتورة</td><td>${_money(totals.grand)}</td></tr></tfoot>
         </table>
       </div>
     </div>
@@ -143,16 +180,25 @@ async function _handleSubmit(container, hydrated) {
     const orderNumber = order.order_number || '';
     const statusLabel = formatStatus(order.order_status || 'pending');
     const successTitle = edit ? 'تم تحديث الفاتورة بنجاح' : 'تم إنشاء الفاتورة بنجاح';
+    const docType = ['pending', 'reviewing', 'submitted'].includes(String(order.order_status || '').trim().toLowerCase()) ? 'طلب شراء' : 'فاتورة';
+    const repName = viewModel.creator.name || '';
+    const repPhone = viewModel.creator.phone || '';
+    const custName = viewModel.customer.name || '';
+    const custPhone = viewModel.customer.phone || '';
+    const custAddr = viewModel.customer.address || '';
 
     container.innerHTML = `<div class="v2-co">
       <div class="v2-co-success-screen">
         <div class="v2-co-success-anim">✅</div>
         <h2>${successTitle}</h2>
-        <div class="v2-co-invoice-num">${_e(String(orderNumber))}</div>
+        <div class="v2-co-success-subtitle">${docType} رقم ${_e(String(orderNumber))}</div>
         <div class="v2-co-invoice-status"><span class="v2-badge v2-badge-ok" style="font-size:.8125rem;padding:.25rem .75rem;border-radius:20px">${statusLabel}</span></div>
         <p style="color:var(--v2-text2);font-size:.875rem;margin-top:.5rem">تم فتح واتساب لإتمام الإرسال</p>
 
         <div class="v2-co-invoice-summary">
+          ${custName ? `<div class="v2-co-invoice-summary-row"><span>العميل</span><span>${_e(custName)}${custPhone ? ' - ' + _e(custPhone) : ''}</span></div>` : ''}
+          ${custAddr ? `<div class="v2-co-invoice-summary-row"><span>عنوان العميل</span><span style="font-size:.8125rem">${_e(custAddr)}</span></div>` : ''}
+          ${repName ? `<div class="v2-co-invoice-summary-row"><span>مندوب المبيعات</span><span>${_e(repName)}${repPhone ? ' - ' + _e(repPhone) : ''}</span></div>` : ''}
           <div class="v2-co-invoice-summary-row"><span>عدد الأصناف</span><span>${hydrated.length}</span></div>
           <div class="v2-co-invoice-summary-row"><span>الإجمالي</span><span>${_money(totals.grand)}</span></div>
         </div>
@@ -188,18 +234,6 @@ async function _handleSubmit(container, hydrated) {
   } finally {
     releaseCheckoutLock();
   }
-}
-
-function _itemRow(item) {
-  const p = item.product;
-  const code = p?.product_code || item.code || '';
-  return `<tr>
-    <td>${_e(p?.product_name || '')}${code ? `<br><small style="color:var(--v2-text2);font-size:.75rem">${_e(code)}</small>` : ''}</td>
-    <td>${_e(item.unitName || item.unitCode || '')}</td>
-    <td>${item.qty}</td>
-    <td>${item.price?.found ? _money(item.price.final_price) : '—'}</td>
-    <td>${item.price?.found ? _money(item.price.final_price * item.qty) : '—'}</td>
-  </tr>`;
 }
 
 function _e(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }

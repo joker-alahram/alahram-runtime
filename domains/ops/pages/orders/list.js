@@ -143,6 +143,12 @@ function _card(o) {
   const st = m?.color || '#6b7280';
   const stLbl = m?.label || o.order_status || '';
   const stIcon = m?.icon || '📄';
+  const docType = _docTitle(o.order_status);
+  const custName = o.customer_name_snapshot || '—';
+  const custPhone = o.customer_phone_snapshot || '';
+  const custAddress = o.customer_address_snapshot || '';
+  const repName = o.created_by_name_snapshot || '—';
+  const repPhone = o.created_by_phone_snapshot || '';
   const priority = o.priority || 'normal';
   const priorityLabel = priority === 'urgent' ? 'عاجل' : priority === 'high' ? 'مرتفع' : '';
   const actions = _allowedByOrderId[o.id] || [];
@@ -152,36 +158,49 @@ function _card(o) {
   const dateStr = dt ? dt.toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
   const timeStr = dt ? dt.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '';
 
-  return `<div class="v2-oc-card">
-    <div class="v2-oc-top">
-      <div class="v2-oc-left">
-        <a href="#ops/orders/${o.id}" class="v2-oc-number">${_e(o.order_number || '—')}</a>
-        ${priority !== 'normal' ? `<span class="v2-oc-priority v2-oc-priority-${priority}">${priorityLabel}</span>` : ''}
-        <div class="v2-oc-customer">${_e(o.customer_name || o.customer_name_snapshot || '—')}</div>
-      </div>
-      <div class="v2-oc-right">
-        <div class="v2-oc-amount">${_money(o.total_amount)}</div>
-        <div class="v2-oc-status" style="background:${st}"><span class="v2-oc-status-icon">${stIcon}</span> ${stLbl}</div>
+  return `<div class="v2-oc-card" style="border:1px solid #e2e8f0;border-radius:12px;margin-bottom:.75rem;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:.625rem .75rem;background:#f8fafc;border-bottom:1px solid #e2e8f0">
+      <div style="font-size:1rem;font-weight:700;color:#0d2b6b">${docType} ${_e(o.order_number || '—')}</div>
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <div style="font-size:.8125rem;font-weight:700;color:#059669">${_money(o.total_amount)}</div>
+        <div style="background:${st};font-size:.6875rem;padding:.25rem .625rem;border-radius:999px;color:#fff;white-space:nowrap;display:flex;align-items:center;gap:.25rem"><span>${stIcon}</span> ${stLbl}</div>
       </div>
     </div>
-    <div class="v2-oc-mid">
-      <span class="v2-oc-mid-item">🧑‍💼 ${_e(o.created_by_name || o.created_by_name_snapshot || '—')}</span>
-      <span class="v2-oc-mid-item">👤 ${_e(o.owner_name_snapshot || o.owner_name || '—')}</span>
-      <span class="v2-oc-mid-item">📅 ${dateStr}</span>
-      <span class="v2-oc-mid-item">🕐 ${timeStr}</span>
-      ${o.items_count != null ? `<span class="v2-oc-mid-item">📦 ${o.items_count} صنف</span>` : ''}
+    <div style="padding:.75rem">
+      <div style="display:flex;flex-wrap:wrap;gap:1rem">
+        <div style="flex:2;min-width:180px;padding:.5rem;background:#f0f7ff;border-radius:8px;border-right:3px solid #0d2b6b">
+          <div style="font-size:.6875rem;font-weight:700;color:#0d2b6b;text-transform:uppercase;margin-bottom:4px">👤 العميل</div>
+          <div style="font-weight:700;font-size:.9375rem;color:#1e293b">${_e(custName)}</div>
+          ${custPhone ? `<div style="font-size:.8125rem;color:#475569;margin-top:2px">📞 ${_e(custPhone)}</div>` : ''}
+          ${custAddress ? `<div style="font-size:.8125rem;color:#475569">📍 ${_e(custAddress)}</div>` : ''}
+        </div>
+        <div style="flex:1;min-width:140px;padding:.5rem;background:#fafafa;border-radius:8px">
+          <div style="font-size:.6875rem;font-weight:700;color:#6b7280;margin-bottom:4px">🧑‍💼 مندوب المبيعات</div>
+          <div style="font-weight:600;font-size:.875rem;color:#1e293b">${_e(repName)}</div>
+          ${repPhone ? `<div style="font-size:.8125rem;color:#475569;margin-top:2px" dir="ltr">📞 ${_e(repPhone)}</div>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;gap:.75rem;font-size:.75rem;color:#6b7280;margin-top:.5rem;padding-top:.5rem;border-top:1px solid #f1f5f9">
+        <span>📅 ${_e(dateStr)}</span>
+        <span>🕐 ${_e(timeStr)}</span>
+        ${o.items_count != null ? `<span>📦 ${o.items_count} صنف</span>` : ''}
+      </div>
     </div>
-    <div class="v2-oc-bottom">
-      <a href="#ops/orders/${o.id}" class="v2-oc-view-btn" style="display:inline-flex;align-items:center;gap:.375rem;padding:.375rem .75rem;background:#0d2b6b;color:#fff;border-radius:8px;font-size:.75rem;font-weight:600;text-decoration:none">📄 عرض الفاتورة</a>
+    <div style="display:flex;gap:.5rem;padding:.5rem .75rem;border-top:1px solid #e2e8f0;background:#f8fafc">
+      <a href="#ops/orders/${o.id}" style="padding:.375rem .75rem;background:#0d2b6b;color:#fff;border-radius:8px;font-size:.75rem;font-weight:600;text-decoration:none">📄 عرض</a>
       ${hasTransitions ? `
-        <select class="v2-oc-select" data-status-select data-order="${o.id}">
+        <select class="v2-oc-select" data-status-select data-order="${o.id}" style="font-size:.75rem;padding:.375rem .5rem;border-radius:8px;border:1px solid #d1d5db;background:#fff;flex:1;min-width:120px">
           <option value="">تغيير الحالة...</option>
           ${actions.map(a => `<option value="${a.target_status}">${a.label}</option>`).join('')}
-        </select>` : `<span class="v2-oc-no-actions">—</span>`}
-      ${_canDeleteByOrderId[o.id] ? `<button class="v2-oc-del" data-del="${o.id}" title="حذف">🗑️</button>` : ''}
+        </select>` : `<span style="font-size:.75rem;color:#9ca3af;padding:.375rem 0">—</span>`}
+      ${_canDeleteByOrderId[o.id] ? `<button class="v2-oc-del" data-del="${o.id}" style="padding:.375rem .5rem;border:1px solid #fca5a5;border-radius:8px;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:.75rem" title="حذف">🗑️</button>` : ''}
     </div>
   </div>`;
 }
 
 function _e(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function _money(n) { if (n == null) return ''; return Number(n).toLocaleString('en-US') + ' ج.م'; }
+function _docTitle(status) {
+  const s = String(status || '').trim().toLowerCase();
+  return ['pending', 'reviewing', 'submitted'].includes(s) ? 'طلب شراء' : 'فاتورة';
+}

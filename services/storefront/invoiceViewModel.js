@@ -121,7 +121,8 @@ export function buildInvoiceViewModel({ order, items, session, geo, activeVisit,
   }
 
   const groupedItems = _groupItemsByCompany(items);
-  const auditEvents = _buildAuditEvents(order.history);
+  const docType = order.docType || (['pending', 'reviewing', 'submitted'].includes(String(order.order_status || '').trim().toLowerCase()) ? 'طلب شراء' : 'فاتورة');
+  const timeline = order.timeline || [];
   const executionSourceLabel = _executionSourceLabel(executionSource);
   const capturedAtStr = executionCapturedAt ? new Date(executionCapturedAt) : null;
 
@@ -133,6 +134,7 @@ export function buildInvoiceViewModel({ order, items, session, geo, activeVisit,
     invoice: {
       id: order.id,
       number: invoiceNum,
+      docType,
       date: now,
       dateStr: now.toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' }),
       timeStr: now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
@@ -150,14 +152,14 @@ export function buildInvoiceViewModel({ order, items, session, geo, activeVisit,
     customer: {
       name: order.customer_name_snapshot || '',
       phone: order.customer_phone_snapshot || '',
-      address: order.customer_address_snapshot || order.customer_address || '',
+      address: order.customer_address_snapshot || '',
       locationLink: order.execution_maps_url || '',
     },
     creator: {
-      name: order.created_by_name_snapshot || session?.actor?.fullName || '',
-      phone: order.created_by_phone_snapshot || session?.actor?.phone || '',
-      address: session?.actor?.address || '',
-      type: order.created_by_type || session?.actor?.type || '',
+      name: order.created_by_name_snapshot || '',
+      phone: order.created_by_phone_snapshot || '',
+      address: '',
+      type: order.created_by_type || '',
     },
     execution: {
       latitude: executionLat,
@@ -176,7 +178,7 @@ export function buildInvoiceViewModel({ order, items, session, geo, activeVisit,
     visit: visitEvidence,
     items,
     groupedItems,
-    auditEvents,
+    timeline,
     geoGuidance: geoGuidance || null,
   };
 }

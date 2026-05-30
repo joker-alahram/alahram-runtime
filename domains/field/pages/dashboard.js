@@ -47,7 +47,7 @@ function _card(v) {
   const icon = s === 'completed' ? '✅' : s === 'open' ? '🟢' : s === 'cancelled' ? '❌' : '📋';
   const lbl = s === 'completed' ? 'مكتملة' : s === 'open' ? 'قيد التنفيذ' : s === 'cancelled' ? 'ملغية' : 'مجدولة';
   return `<div class="v2-fv-card" data-visit="${v.id}">
-    <div class="v2-fv-ch"><span>${_e('زيارة #' + v.id.slice(0, 8))}</span><span>${icon} ${lbl}</span></div>
+    <div class="v2-fv-ch"><span>${_e(v.visit_number ? 'زيارة #' + v.visit_number : 'زيارة')}</span><span>${icon} ${lbl}</span></div>
     ${v.check_in_time ? `<div class="v2-fv-time">${_t(v.check_in_time)}${v.check_out_time ? ` - ${_t(v.check_out_time)}` : ''}</div>` : ''}
     ${v.note ? `<div class="v2-fv-oc">${_e(v.note)}</div>` : ''}
   </div>`;

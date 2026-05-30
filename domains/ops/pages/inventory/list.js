@@ -108,7 +108,7 @@ async function _renderReservations(el) {
     ? '<div class="v2-inv-empty">لا توجد حجوزات نشطة</div>'
     : `<div class="v2-inv-scroll"><table class="v2-inv-tbl"><thead><tr><th>رقم الحجز</th><th>المنتج</th><th>الكمية</th><th>تاريخ الإنشاء</th><th></th></tr></thead><tbody>${data.map(r => `<tr>
       <td>${_e(r.reservation_number || `#${r.id}`)}</td>
-      <td>${_e(r.product_id?.slice(0, 8))}</td>
+      <td>${_e(r.product_code_snapshot || r.product_name_snapshot || r.product_name || '—')}</td>
       <td class="v2-inv-num">${_n(r.quantity)}</td>
       <td>${_d(r.created_at)}</td>
       <td><button class="v2-inv-act" data-release="${r.id}">إلغاء الحجز</button></td>

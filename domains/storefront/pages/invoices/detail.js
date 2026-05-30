@@ -1,7 +1,7 @@
 import { getInvoiceDetail } from '../../../../services/storefront/invoicesApi.js';
 import { buildWhatsAppMessage } from '../../../../services/storefront/transportRuntime.js';
 import { buildInvoiceViewModel } from '../../../../services/storefront/invoiceViewModel.js';
-import { renderInvoiceHtml, printInvoice } from '../../../../services/storefront/pdfService.js';
+import { renderInvoiceHtml, printInvoice, printInvoiceA5 } from '../../../../services/storefront/pdfService.js';
 import { buildCanonicalInvoiceHtml, _e, _money } from '../../../../services/storefront/canonicalInvoice.js';
 import { getSession } from '../../../../auth/sessionService.js';
 import { logError } from '../../../../utils/logger.js';
@@ -30,15 +30,20 @@ function _render(container, vm) {
     <nav class="v2-id-nav"><a href="#invoices" class="v2-id-back">← العودة للفواتير</a></nav>
     ${buildCanonicalInvoiceHtml(vm)}
     <div class="v2-com-actions">
-      <button class="v2-com-btn v2-com-btn-pdf" id="v2-id-pdf">🖨️ تحميل PDF</button>
+      <button class="v2-com-btn v2-com-btn-pdf" id="v2-id-pdf-a4">🖨️ PDF A4</button>
+      <button class="v2-com-btn v2-com-btn-pdf" id="v2-id-pdf-a5" style="background:#059669">📱 PDF A5</button>
       ${_whatsappBtn(vm)}
       ${_editBtn(vm)}
     </div>
   </div>`;
 
-  container.querySelector('#v2-id-pdf')?.addEventListener('click', () => {
+  container.querySelector('#v2-id-pdf-a4')?.addEventListener('click', () => {
     const html = renderInvoiceHtml(vm);
     printInvoice(html);
+  });
+
+  container.querySelector('#v2-id-pdf-a5')?.addEventListener('click', () => {
+    printInvoiceA5(vm);
   });
 
   container.querySelector('#v2-id-wa')?.addEventListener('click', () => {

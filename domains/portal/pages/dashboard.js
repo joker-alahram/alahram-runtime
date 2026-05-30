@@ -18,7 +18,7 @@ export async function renderPortalDashboard(container) {
 }
 
 async function _fetchOrders(cid) {
-  const r = await fetch(readConfig().baseUrl + '/runtime_order_visibility?customer_id=eq.' + cid + '&select=id,order_number,created_at,total_amount,order_status&order=created_at.desc&limit=5', { headers: _headers() });
+  const r = await fetch(readConfig().baseUrl + '/runtime_order_visibility?customer_id=eq.' + cid + '&select=id,order_number,created_at,total_amount,order_status,customer_name_snapshot,customer_phone_snapshot,created_by_name_snapshot,created_by_name,created_by_phone_snapshot&order=created_at.desc&limit=5', { headers: _headers() });
   if (!r.ok) return [];
   return r.json();
 }
@@ -41,15 +41,23 @@ function _render(container, ses, orders) {
 }
 
 function _orderCard(o) {
+  const docType = _docTitle(o.order_status);
+  const repName = o.created_by_name_snapshot || '';
+  const repPhone = o.created_by_phone_snapshot || '';
+  const custName = o.customer_name_snapshot || '';
+  const custPhone = o.customer_phone_snapshot || '';
   return '<a href="#portal/orders/' + o.id + '" class="v2-pdash-card">'
     + '<div class="v2-pdash-card-h">'
-    + '<span class="v2-pdash-card-num">' + _e(o.order_number || '') + '</span>'
+    + '<span class="v2-pdash-card-num">' + docType + ' ' + _e(o.order_number || '') + '</span>'
     + '<span class="v2-pdash-card-st v2-st-' + _statusClass(o.order_status) + '">' + _statusText(o.order_status) + '</span>'
     + '</div>'
     + '<div class="v2-pdash-card-b">'
     + '<span class="v2-pdash-card-date">' + _e(o.created_at ? o.created_at.slice(0, 10) : '') + '</span>'
     + '<span class="v2-pdash-card-amount">' + _money(o.total_amount) + '</span>'
-    + '</div></a>';
+    + '</div>'
+    + (custName ? '<div style="font-size:.75rem;color:#374151;margin-top:.25rem">👤 ' + _e(custName) + (custPhone ? ' - ' + _e(custPhone) : '') + '</div>' : '')
+    + (repName ? '<div style="font-size:.75rem;color:#6b7280">🧑‍💼 ' + _e(repName) + (repPhone ? ' - ' + _e(repPhone) : '') + '</div>' : '')
+    + '</a>';
 }
 
 function _headers() {
@@ -71,3 +79,7 @@ function _statusClass(s) {
 
 function _e(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function _money(n) { if (n == null) return ''; return Number(n).toLocaleString('en-US') + ' ج.م'; }
+function _docTitle(status) {
+  const s = String(status || '').trim().toLowerCase();
+  return ['pending', 'reviewing', 'submitted'].includes(s) ? 'طلب شراء' : 'فاتورة';
+}

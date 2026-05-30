@@ -73,7 +73,7 @@ export async function renderOpsCustomer(container, params) {
         const prodMap = {};
         for (const item of items) {
           const key = item.product_id || item.product_name_snapshot;
-          if (!prodMap[key]) prodMap[key] = { name: item.product_name_snapshot || key, qty: 0, total: 0, count: 0 };
+          if (!prodMap[key]) prodMap[key] = { name: item.product_name_snapshot || 'منتج', qty: 0, total: 0, count: 0 };
           prodMap[key].qty += Number(item.quantity || 0);
           prodMap[key].total += Number(item.total_amount || 0);
           prodMap[key].count += 1;
@@ -191,7 +191,7 @@ export async function renderOpsCustomer(container, params) {
             <div class="v2-occp-inv-mid">
               <span>${_d(o.created_at)}</span>
               <span class="v2-badge ${o.order_status === 'cancelled' ? 'v2-badge-no' : o.order_status === 'delivered' ? 'v2-badge-ok' : 'v2-badge-info'}">${_e(o.order_status || '')}</span>
-              ${(o.created_by_name || o.created_by_name_snapshot) ? `<span>🧑‍💼 ${_e(o.created_by_name || o.created_by_name_snapshot)}</span>` : ''}
+              ${o.created_by_name_snapshot ? `<span>🧑‍💼 ${_e(o.created_by_name_snapshot)}</span>` : ''}
             </div>
           </a>`).join('')}</div>`}
         ${orders.length > 20 ? `<a href="#ops/orders?customer=${customerId}" style="display:block;text-align:center;font-size:13px;color:#0052cc;margin-top:8px">عرض الكل (${orders.length})</a>` : ''}

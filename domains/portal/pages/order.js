@@ -1,5 +1,6 @@
 import { readConfig } from '../../../config.js';
 import { getSession } from '../../../auth/sessionService.js';
+import { groupItemsByCompany, getProductName, getProductCode, getUnitName, getQuantity, getFinalPrice, getLineTotal, computeGroupSubtotal, computeGrandTotal } from '../../../services/storefront/groupItems.js';
 
 export async function renderPortalOrder(container, params) {
   const orderId = params?.orderId || '';
@@ -22,7 +23,7 @@ export async function renderPortalOrder(container, params) {
 }
 
 async function _fetchOrder(id) {
-  const r = await fetch(readConfig().baseUrl + '/runtime_order_visibility?select=id,order_number,customer_id,total_amount,order_status,workflow_status,created_at,note,created_by_name_snapshot,owner_name_snapshot,created_by_name&id=eq.' + id, { headers: _headers() });
+  const r = await fetch(readConfig().baseUrl + '/runtime_order_visibility?select=id,order_number,customer_id,total_amount,order_status,workflow_status,created_at,note,customer_name_snapshot,customer_phone_snapshot,customer_address_snapshot,created_by_name_snapshot,owner_name_snapshot,created_by_name,created_by_phone_snapshot&id=eq.' + id, { headers: _headers() });
   if (!r.ok) return null;
   const arr = await r.json();
   return arr.length ? arr[0] : null;
@@ -39,32 +40,53 @@ function _render(container, order, items) {
   parts.push('<nav class="v2-back-nav"><a href="#portal/orders" class="v2-back-link">← العودة للطلبات</a></nav>');
   parts.push('<div class="v2-pord">');
   parts.push('<div class="v2-pord-header">');
-  parts.push('<h2>طلب ' + _e(order.order_number || '') + '</h2>');
+  parts.push('<h2>' + _docTitle(order.order_status) + ' ' + _e(order.order_number || '') + '</h2>');
   parts.push('<span class="v2-por-card-st v2-st-' + _statusClass(order.order_status) + '">' + _statusText(order.order_status) + '</span>');
   parts.push('</div>');
   parts.push('<div class="v2-pord-info">');
   if (order.created_at) parts.push('<div class="v2-pord-info-row"><span>التاريخ</span><span>' + _e(order.created_at.slice(0, 10)) + '</span></div>');
-  if (order.created_by_name || order.created_by_name_snapshot) parts.push('<div class="v2-pord-info-row"><span>الموظف</span><span>' + _e(order.created_by_name || order.created_by_name_snapshot) + '</span></div>');
+  if (order.customer_name_snapshot) {
+    parts.push('<div class="v2-pord-info-row"><span>العميل</span><span>' + _e(order.customer_name_snapshot) + '</span></div>');
+    if (order.customer_phone_snapshot) parts.push('<div class="v2-pord-info-row"><span>هاتف العميل</span><span dir="ltr">' + _e(order.customer_phone_snapshot) + '</span></div>');
+    if (order.customer_address_snapshot) parts.push('<div class="v2-pord-info-row"><span>عنوان العميل</span><span>' + _e(order.customer_address_snapshot) + '</span></div>');
+  }
+  const repName = order.created_by_name_snapshot || '';
+  const repPhone = order.created_by_phone_snapshot || '';
+  if (repName) parts.push('<div class="v2-pord-info-row"><span>مندوب المبيعات</span><span>' + _e(repName) + (repPhone ? ' - ' + _e(repPhone) : '') + '</span></div>');
   if (order.note) parts.push('<div class="v2-pord-info-row"><span>ملاحظات</span><span>' + _e(order.note) + '</span></div>');
   parts.push('</div>');
   parts.push('<div class="v2-pord-items"><h3>الأصناف</h3>');
   if (!items.length) {
     parts.push('<div class="v2-empty"><p>لا توجد أصناف</p></div>');
   } else {
-    parts.push('<table class="v2-pord-table"><thead><tr><th>الصنف</th><th>الوحدة</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr></thead><tbody>');
-    let total = 0;
-    for (const item of items) {
-      const lineTotal = (item.final_price || 0) * (item.quantity || 0);
-      total += lineTotal;
-      parts.push('<tr>'
-        + '<td>' + _e(item.product_name_snapshot || '') + (item.product_code_snapshot ? '<br><small>' + _e(item.product_code_snapshot) + '</small>' : '') + '</td>'
-        + '<td>' + _e(item.unit_name_snapshot || '') + '</td>'
-        + '<td>' + (item.quantity || 0) + '</td>'
-        + '<td>' + _money(item.final_price) + '</td>'
-        + '<td>' + _money(lineTotal) + '</td>'
-        + '</tr>');
+    const groups = groupItemsByCompany(items);
+    parts.push('<table class="v2-pord-table"><thead><tr><th>كود الصنف</th><th>اسم الصنف</th><th>الوحدة</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr></thead><tbody>');
+    let grandTotal = 0;
+    for (const group of groups) {
+      const groupSubtotal = computeGroupSubtotal(group.items);
+      grandTotal += groupSubtotal;
+      parts.push('<tr style="background:#eef2ff;font-weight:700;text-align:right"><td colspan="6" style="padding:6px 10px;color:#0d2b6b;border-bottom:2px solid #0052cc">' + _e(group.companyName) + ' (' + group.items.length + ' أصناف)</td></tr>');
+      for (const item of group.items) {
+        const code = getProductCode(item);
+        const name = getProductName(item);
+        const unit = getUnitName(item);
+        const qty = getQuantity(item);
+        const price = getFinalPrice(item);
+        const lineTotal = getLineTotal(item);
+        parts.push('<tr>'
+          + '<td style="font-family:monospace;direction:ltr;font-size:.8125rem">' + _e(code || '—') + '</td>'
+          + '<td>' + _e(name) + '</td>'
+          + '<td>' + _e(unit) + '</td>'
+          + '<td>' + qty + '</td>'
+          + '<td>' + _money(price) + '</td>'
+          + '<td>' + _money(lineTotal) + '</td>'
+          + '</tr>');
+      }
+      if (groups.length > 1) {
+        parts.push('<tr style="background:#f8f9fa;font-weight:600"><td colspan="5" style="text-align:left;border-top:1px solid #0052cc">إجمالي ' + _e(group.companyName) + '</td><td style="border-top:1px solid #0052cc">' + _money(groupSubtotal) + '</td></tr>');
+      }
     }
-    parts.push('</tbody><tfoot><tr class="v2-pord-total"><td colspan="4" style="text-align:left;">الإجمالي</td><td>' + _money(total) + '</td></tr></tfoot></table>');
+    parts.push('</tbody><tfoot><tr class="v2-pord-total"><td colspan="5" style="text-align:left;">الإجمالي النهائي</td><td>' + _money(grandTotal) + '</td></tr></tfoot></table>');
   }
   parts.push('</div>');
   if (order.execution_maps_url) {
@@ -93,3 +115,7 @@ function _statusClass(s) {
 
 function _e(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function _money(n) { if (n == null) return ''; return Number(n).toLocaleString('en-US') + ' ج.م'; }
+function _docTitle(status) {
+  const s = String(status || '').trim().toLowerCase();
+  return ['pending', 'reviewing', 'submitted'].includes(s) ? 'طلب شراء' : 'فاتورة';
+}

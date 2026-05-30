@@ -10,7 +10,7 @@ export function buildCanonicalInvoiceHtml(vm) {
   let tableHtml = '';
   for (const group of vm.groupedItems) {
     let groupTotal = 0;
-    tableHtml += `<tr class="v2-com-gh"><td colspan="6"><strong>${_e(group.companyName || 'شركة')}</strong></td></tr>`;
+    tableHtml += `<tr class="v2-com-gh"><td colspan="6"><strong>${_e(group.companyName || 'شركة')} (${group.items.length})</strong></td></tr>`;
     let alt = false;
     for (const item of group.items) {
       const pcode = item.product_code_snapshot || '';
@@ -81,29 +81,74 @@ export function buildCanonicalInvoiceHtml(vm) {
       const updTime = upd.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
       revisionHtml += `<span>آخر تعديل: ${updDate} ${updTime}</span><br>`;
     }
-    if (vm.invoice.updatedByName || vm.invoice.updatedBy) {
-      revisionHtml += `<span>تم التعديل بواسطة: ${_e(vm.invoice.updatedByName || String(vm.invoice.updatedBy))}</span>`;
+    if (vm.invoice.updatedByName) {
+      revisionHtml += `<span>تم التعديل بواسطة: ${_e(vm.invoice.updatedByName)}</span>`;
     }
     revisionHtml += `</div>`;
   }
 
-  let auditHtml = '';
-  if (vm.auditEvents && vm.auditEvents.length > 0) {
-    auditHtml = `<div class="v2-com-timeline"><div class="v2-com-tl-title">📜 سجل الأحداث</div>`;
-    for (const evt of vm.auditEvents) {
-      const evtDate = evt.createdAt ? new Date(evt.createdAt) : null;
-      const evtDateStr = evtDate ? evtDate.toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
-      const evtTimeStr = evtDate ? evtDate.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '';
-      auditHtml += `<div class="v2-com-tl-item">
-        <span class="v2-com-tl-dot"></span>
-        <div class="v2-com-tl-body">
-          <div class="v2-com-tl-status">${_e(evt.label)}</div>
-          <div class="v2-com-tl-time">${evtDateStr} ${evtTimeStr}${evt.createdByName ? ` — ${_e(evt.createdByName)}` : ''}</div>
-          ${evt.note ? `<div class="v2-com-tl-note">${_e(evt.note)}</div>` : ''}
-        </div>
+  let timelineHtml = '';
+  if (vm.timeline && vm.timeline.length > 0) {
+    const actionMap = {
+      order_created: 'تم إنشاء الطلب', order_edited: 'تم تعديل الطلب',
+      item_added: 'تمت إضافة صنف', item_removed: 'تم حذف صنف',
+      qty_changed: 'تم تعديل الكمية', price_changed: 'تم تعديل السعر',
+      return_to_cart: 'تمت إعادة الطلب للسلة', resubmitted: 'تمت إعادة إرسال الطلب',
+      approved: 'تم اعتماد الطلب', status_changed: 'تم تغيير الحالة',
+    };
+    const statusLabels = {
+      draft: 'مسودة', pending: 'قيد الانتظار', submitted: 'تم الإرسال',
+      reviewing: 'تحت المراجعة', approved: 'معتمد', preparing: 'قيد التجهيز',
+      dispatched: 'خرج للشحن', delivered: 'تم التسليم', collected: 'تم التحصيل',
+      returned: 'مرتجع', cancelled: 'ملغي', confirmed: 'تم التأكيد',
+      processing: 'قيد التجهيز', shipped: 'تم الشحن', paid: 'مدفوع',
+      completed: 'مكتمل', rejected: 'مرفوض',
+    };
+    timelineHtml = `<div class="v2-com-timeline"><div class="v2-com-tl-title">سجل التغييرات</div>`;
+    for (const ev of vm.timeline) {
+      const evDate = ev.created_at ? new Date(ev.created_at) : null;
+      const evDateStr = evDate ? evDate.toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+      const evTimeStr = evDate ? evDate.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '';
+      const actorName = (ev.actor_name && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ev.actor_name)) ? ev.actor_name : '';
+      const phone = ev.actor_phone || '';
+      const action = actionMap[ev.event_type] || '';
+      let detailsHtml = '';
+      if (ev.change_details && Array.isArray(ev.change_details)) {
+        const groups = [];
+        for (const d of ev.change_details) {
+          const lines = [];
+          if (d.type === 'QTY_CHANGE') {
+            lines.push('<span class="v2-com-tl-dl">الصنف:</span><span class="v2-com-tl-dv"> ' + _e((d.product_name || '') + (d.product_code ? ' (' + d.product_code + ')' : '')) + '</span>');
+            lines.push('<span class="v2-com-tl-dl">الكمية:</span><span class="v2-com-tl-dv"> ' + (d.old_quantity || 0) + ' ← ' + (d.new_quantity || 0) + '</span>');
+          } else if (d.type === 'ADD_ITEM') {
+            lines.push('<span class="v2-com-tl-dl">الصنف:</span><span class="v2-com-tl-dv"> ' + _e((d.product_name || '') + (d.product_code ? ' (' + d.product_code + ')' : '')) + '</span>');
+            lines.push('<span class="v2-com-tl-dv v2-com-tl-dv-ad">تمت إضافته</span>');
+            if (d.new_quantity != null) lines.push('<span class="v2-com-tl-dl">الكمية:</span><span class="v2-com-tl-dv"> ' + d.new_quantity + '</span>');
+          } else if (d.type === 'REMOVE_ITEM') {
+            lines.push('<span class="v2-com-tl-dl">الصنف:</span><span class="v2-com-tl-dv"> ' + _e((d.product_name || '') + (d.product_code ? ' (' + d.product_code + ')' : '')) + '</span>');
+            lines.push('<span class="v2-com-tl-dv v2-com-tl-dv-rm">تم حذفه</span>');
+            if (d.old_quantity != null) lines.push('<span class="v2-com-tl-dl">الكمية السابقة:</span><span class="v2-com-tl-dv"> ' + d.old_quantity + '</span>');
+          } else if (d.type === 'PRICE_CHANGE') {
+            lines.push('<span class="v2-com-tl-dl">الصنف:</span><span class="v2-com-tl-dv"> ' + _e((d.product_name || '') + (d.product_code ? ' (' + d.product_code + ')' : '')) + '</span>');
+            lines.push('<span class="v2-com-tl-dl">السعر:</span><span class="v2-com-tl-dv"> ' + _money(d.old_price || 0) + ' ← ' + _money(d.new_price || 0) + '</span>');
+          } else if (d.type === 'STATUS_CHANGE') {
+            const fromLabel = statusLabels[String(d.from || '').trim().toLowerCase()] || d.from;
+            const toLabel = statusLabels[String(d.to || '').trim().toLowerCase()] || d.to;
+            lines.push('<span class="v2-com-tl-dl">الحالة:</span><span class="v2-com-tl-dv"> ' + _e(fromLabel) + ' ← ' + _e(toLabel) + '</span>');
+            if (d.note) lines.push('<span class="v2-com-tl-dv" style="font-size:.75rem;color:#6b7280">' + _e(d.note) + '</span>');
+          }
+          if (lines.length) groups.push('<div class="v2-com-tl-dg">' + lines.join('') + '</div>');
+        }
+        if (groups.length) detailsHtml = '<div class="v2-com-tl-dd">' + groups.join('<hr class="v2-com-tl-ds">') + '</div>';
+      }
+      timelineHtml += `<div class="v2-com-tl-card">
+        <div class="v2-com-tl-hd"><span class="v2-com-tl-ar">▼</span><span class="v2-com-tl-dt">${_e(evDateStr)} - ${_e(evTimeStr)}</span></div>
+        ${actorName ? '<div class="v2-com-tl-ac"><span class="v2-com-tl-an">' + _e(actorName) + '</span>' + (phone ? '<span class="v2-com-tl-ap"> ' + _e(phone) + '</span>' : '') + '</div>' : ''}
+        ${action ? '<div class="v2-com-tl-at">' + _e(action) + '</div>' : ''}
+        ${detailsHtml}
       </div>`;
     }
-    auditHtml += `</div>`;
+    timelineHtml += `</div>`;
   }
 
   const notesHtml = vm.invoice.notes ? `<div class="v2-com-notes" style="margin:0 2rem 1rem"><strong>ملاحظات:</strong> ${_e(vm.invoice.notes)}</div>` : '';
@@ -115,7 +160,7 @@ export function buildCanonicalInvoiceHtml(vm) {
       <div class="v2-com-h-left">
         <div class="v2-com-brand">${_e(vm.company.brand)}</div>
         <div class="v2-com-brand-sub">${_e(vm.company.name)}</div>
-        <div class="v2-com-invoice-num">فاتورة رقم ${_e(String(vm.invoice.number))}</div>
+        <div class="v2-com-invoice-num">${_e(vm.invoice.docType)} رقم ${_e(String(vm.invoice.number))}</div>
       </div>
       <div class="v2-com-h-right">
         <div class="v2-com-status ${statusBadgeClass}"><span>${statusIcon}</span> ${vm.invoice.statusLabel}</div>
@@ -133,7 +178,7 @@ export function buildCanonicalInvoiceHtml(vm) {
         ${vm.customer.locationLink ? `<a href="${_e(vm.customer.locationLink)}" target="_blank" class="v2-com-party-map">موقع العميل</a>` : ''}
       </div>` : ''}
       ${vm.creator.name ? `<div class="v2-com-party-card">
-        <div class="v2-com-party-title">منشئ الفاتورة</div>
+        <div class="v2-com-party-title">مندوب المبيعات</div>
         <div class="v2-com-party-name">${_e(vm.creator.name)}</div>
         ${vm.creator.phone ? `<div class="v2-com-party-detail">📞 ${_e(vm.creator.phone)}</div>` : ''}
         ${vm.creator.address ? `<div class="v2-com-party-detail">📍 ${_e(vm.creator.address)}</div>` : ''}
@@ -145,7 +190,7 @@ export function buildCanonicalInvoiceHtml(vm) {
     <div class="v2-com-table-wrap">
       <table class="v2-com-table">
         <thead>
-          <tr><th>الكود</th><th>اسم الصنف</th><th>الوحدة</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr>
+          <tr><th>كود الصنف</th><th>اسم الصنف</th><th>الوحدة</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr>
         </thead>
         <tbody>${tableHtml || '<tr><td colspan="6" class="v2-id-empty">لا توجد أصناف</td></tr>'}</tbody>
       </table>
@@ -167,7 +212,7 @@ export function buildCanonicalInvoiceHtml(vm) {
     </div>
 
     ${revisionHtml}
-    ${auditHtml}
+    ${timelineHtml}
     ${notesHtml}
   </div>`;
 }

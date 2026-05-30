@@ -3,6 +3,7 @@ import { getSession, subscribe } from '../../auth/sessionService.js';
 import { readConfig } from '../../config.js';
 import { buildWhatsAppMessage } from './whatsappApi.js';
 import { runtimePriceSelectFields } from '../contracts/pricing.contract.js';
+import { groupItemsByCompany } from './groupItems.js';
 
 const STORAGE_KEY = 'v2_cart';
 const STATE_KEY = 'v2_cart_state';
@@ -405,6 +406,7 @@ export function buildCheckoutWhatsApp(hydrated, notes) {
   const items = hydrated.map(h => ({
     product_name_snapshot: h.product?.product_name || '',
     product_code_snapshot: h.product?.product_code || h.code || '',
+    company_name_snapshot: h.product?.company_name_snapshot || '',
     quantity: h.qty,
     final_price: h.price?.final_price || 0,
     base_price: h.price?.base_price || 0,
@@ -413,7 +415,8 @@ export function buildCheckoutWhatsApp(hydrated, notes) {
     tier_name_snapshot: h._pricingContext?.tierLabel || '',
   }));
   const order = { total_amount: computeTotals(hydrated).grand };
-  const vm = { company: { name: 'شركة الأهرام للتجارة والتوزيع', brand: 'متجر الأهرام' }, invoice: { number: '', total: computeTotals(hydrated).grand, itemCount: items.length, totalQty: items.reduce((a, i) => a + i.quantity, 0), status: 'pending', statusLabel: 'قيد الانتظار', dateStr: new Date().toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' }), timeStr: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }), date: new Date(), notes: '' }, customer: { name: s?.actor?.fullName || '', phone: s?.actor?.phone || '', address: s?.actor?.address || '' }, creator: { name: s?.actor?.fullName || '', phone: s?.actor?.phone || '', address: s?.actor?.address || '', type: s?.actor?.type || '' }, execution: { latitude: null, longitude: null, accuracy: null, quality: null, qualityLabel: '', source: null, capturedAt: null, mapsUrl: '' }, visit: null, items, groupedItems: [], geoGuidance: notes || null };
+  const groups = groupItemsByCompany(items);
+  const vm = { company: { name: 'شركة الأهرام للتجارة والتوزيع', brand: 'متجر الأهرام' }, invoice: { number: '', total: computeTotals(hydrated).grand, itemCount: items.length, totalQty: items.reduce((a, i) => a + i.quantity, 0), status: 'pending', statusLabel: 'قيد الانتظار', dateStr: new Date().toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' }), timeStr: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }), date: new Date(), notes: '' }, customer: { name: s?.actor?.fullName || '', phone: s?.actor?.phone || '', address: s?.actor?.address || '' }, creator: { name: s?.actor?.fullName || '', phone: s?.actor?.phone || '', address: s?.actor?.address || '', type: s?.actor?.type || '' }, execution: { latitude: null, longitude: null, accuracy: null, quality: null, qualityLabel: '', source: null, capturedAt: null, mapsUrl: '' }, visit: null, items, groupedItems: groups, geoGuidance: notes || null };
   return buildWhatsAppMessage(vm);
 }
 

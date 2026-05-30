@@ -141,7 +141,7 @@ export function normalizeOperationalAssignment(o) {
 
 // Minimal select for list views
 export function orderListSelect() {
-  return 'id,order_number,customer_id,total_amount,order_status,workflow_status,created_at,created_by_employee_id,created_by_name,owner_name_snapshot,role_code,created_by_code,customer_name_snapshot,customer_phone_snapshot,customer_address_snapshot';
+  return 'id,order_number,customer_id,total_amount,order_status,workflow_status,created_at,created_by_employee_id,created_by_name,created_by_name_snapshot,created_by_phone_snapshot,owner_name_snapshot,role_code,created_by_code,customer_name_snapshot,customer_phone_snapshot,customer_address_snapshot';
 }
 
 // For counting/statistics
@@ -151,12 +151,12 @@ export function orderStatsSelect() {
 
 // For workflow tracking views
 export function workflowSelectFields() {
-  return 'id,order_number,order_status,workflow_status,approval_status,approved_at,created_at,created_by_employee_id,created_by_name,owner_name_snapshot,manager_name,role_code';
+  return 'id,order_number,order_status,workflow_status,approval_status,approved_at,created_at,created_by_employee_id,created_by_name,created_by_name_snapshot,owner_name_snapshot,manager_name,role_code';
 }
 
 // For order detail pages
 export function orderDetailSelect() {
-  return 'id,order_number,customer_id,customer_name_snapshot,customer_phone_snapshot,customer_address_snapshot,created_by_phone_snapshot,total_amount,discount_amount,subtotal_amount,order_status,workflow_status,approval_status,payment_status,created_at,note,created_by_employee_id,created_by_name,created_by_code,owner_type,owner_id,owner_name_snapshot,manager_name,role_code,role_name,execution_latitude,execution_longitude,execution_maps_url,execution_source,order_execution_status,payment_method_id,branch_id,warehouse_id,order_source,visit_id';
+  return 'id,order_number,customer_id,customer_name_snapshot,customer_phone_snapshot,customer_address_snapshot,created_by_name_snapshot,created_by_phone_snapshot,total_amount,discount_amount,subtotal_amount,order_status,workflow_status,approval_status,payment_status,created_at,note,created_by_employee_id,created_by_name,created_by_code,owner_type,owner_id,owner_name_snapshot,manager_name,role_code,role_name,execution_latitude,execution_longitude,execution_maps_url,execution_source,order_execution_status,payment_method_id,branch_id,warehouse_id,order_source,visit_id';
 }
 
 // For operational assignment views

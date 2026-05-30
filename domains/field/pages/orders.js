@@ -26,9 +26,17 @@ export async function renderFieldOrders(container) {
 const STATUS_LABEL = { pending: 'قيد الانتظار', confirmed: 'مؤكد', processing: 'قيد التنفيذ', shipped: 'تم الشحن', delivered: 'تم التوصيل', cancelled: 'ملغي' };
 
 function _card(o) {
+  const repName = o.created_by_name_snapshot || '';
+  const repPhone = o.created_by_phone_snapshot || '';
+  const custName = o.customer_name_snapshot || '';
+  const custPhone = o.customer_phone_snapshot || '';
+  const custAddr = o.customer_address_snapshot || '';
+  const docType = _docTitle(o.order_status);
   return `<a href="#field/orders/${o.id}" class="v2-fv-card">
-    <div class="v2-fv-ch"><span>${_e(o.order_number || '#' + o.id)}</span><span>${STATUS_LABEL[o.order_status] || o.order_status}</span></div>
-    <div class="v2-fv-time">${_e(o.created_by_name || o.created_by_name_snapshot || '—')}</div>
+    <div class="v2-fv-ch"><span>${docType} ${_e(o.order_number || '#' + o.id)}</span><span>${STATUS_LABEL[o.order_status] || o.order_status}</span></div>
+    ${custName ? '<div class="v2-fv-time">👤 ' + _e(custName) + (custPhone ? ' - ' + _e(custPhone) : '') + '</div>' : ''}
+    ${custAddr ? '<div class="v2-fv-time" style="color:#6b7280">📍 ' + _e(custAddr) + '</div>' : ''}
+    <div class="v2-fv-time">🧑‍💼 ${_e(repName || '—')}${repPhone ? ' - ' + _e(repPhone) : ''}</div>
     <div class="v2-fv-time">${_dt(o.created_at)} - ${_money(o.total_amount)}</div>
   </a>`;
 }
@@ -36,3 +44,7 @@ function _card(o) {
 function _e(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function _money(n) { if (n == null) return ''; return Number(n).toLocaleString('en-US') + ' ج.م'; }
 function _dt(d) { if (!d) return ''; return new Date(d).toLocaleString('ar-EG-u-nu-latn', { year: 'numeric', month: 'short', day: 'numeric' }); }
+function _docTitle(status) {
+  const s = String(status || '').trim().toLowerCase();
+  return ['pending', 'reviewing', 'submitted'].includes(s) ? 'طلب شراء' : 'فاتورة';
+}

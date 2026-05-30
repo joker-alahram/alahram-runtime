@@ -58,6 +58,23 @@ export async function getMyInvoices({ limit = 20, offset = 0, customerId } = {})
       }
     } catch {}
   }
+  // Resolve missing creator snapshots from orders table
+  const missingCreatorIds = [...new Set(data.filter(r => !r.created_by_name_snapshot).map(r => r.id).filter(Boolean))];
+  if (missingCreatorIds.length) {
+    try {
+      const ordRes = await fetch(`${API}/orders?id=in.(${missingCreatorIds.join(',')})&select=id,created_by_name_snapshot,created_by_phone_snapshot`, { headers: _headers() });
+      if (ordRes.ok) {
+        const ordData = await ordRes.json();
+        const ordMap = Object.fromEntries(ordData.map(o => [o.id, o]));
+        for (const row of data) {
+          if (!row.created_by_name_snapshot && ordMap[row.id]) {
+            row.created_by_name_snapshot = ordMap[row.id].created_by_name_snapshot || '';
+            row.created_by_phone_snapshot = row.created_by_phone_snapshot || ordMap[row.id].created_by_phone_snapshot || '';
+          }
+        }
+      }
+    } catch {}
+  }
   return { data, count };
 }
 
@@ -66,11 +83,11 @@ export async function getInvoiceDetail(orderId) {
   const params = new URLSearchParams({ select: orderDetailSelect() });
   params.append('id', `eq.${orderId}`);
   if (scope.created_by_employee_id) params.append('created_by_employee_id', scope.created_by_employee_id);
-  const [orderArr, items, ordersRow, historyRows] = await Promise.all([
+  const [orderArr, items, ordersRow, timelineRows] = await Promise.all([
     fetch(`${API}/runtime_order_visibility?${params}`, { headers: _headers() }).then(r => r.ok ? r.json() : []),
     fetch(`${API}/order_items?order_id=eq.${orderId}&order=created_at.asc&select=id,order_id,product_id,product_unit_id,quantity,base_price,discount_percent,discount_amount,final_price,line_subtotal,line_total,total_amount,product_name_snapshot,product_code_snapshot,unit_name_snapshot,unit_code_snapshot,company_name_snapshot,tier_name_snapshot,tier_price,created_at`, { headers: _headers() }).then(r => r.ok ? r.json() : []),
     fetch(`${API}/orders?id=eq.${orderId}&select=id,revision,updated_at,updated_by,execution_accuracy_meters,execution_captured_at`, { headers: _headers() }).then(r => r.ok ? r.json() : []),
-    fetch(`${API}/order_history?order_id=eq.${orderId}&order=created_at.asc&select=id,order_id,old_status,new_status,note,created_at,changed_by_name`, { headers: _headers() }).then(r => r.ok ? r.json() : []),
+    fetch(`${API}/order_timeline?order_id=eq.${orderId}&order=created_at.asc&select=*`, { headers: _headers() }).then(r => r.ok ? r.json() : []),
   ]);
   if (!orderArr.length) throw new Error('الفاتورة غير موجودة');
   const order = orderArr[0];
@@ -82,10 +99,31 @@ export async function getInvoiceDetail(orderId) {
   order.updated_by = ext.updated_by || null;
   if (ext.execution_accuracy_meters != null) order.execution_accuracy_meters = ext.execution_accuracy_meters;
   if (ext.execution_captured_at) order.execution_captured_at = ext.execution_captured_at;
-  order.history = historyRows || [];
+  order.timeline = timelineRows || [];
+  // Resolve missing actor_name from employees table
+  if (order.timeline.length > 0) {
+    const missingNameRows = order.timeline.filter(t => !t.actor_name && t.actor_id);
+    if (missingNameRows.length > 0) {
+      const ids = missingNameRows.map(t => t.actor_id).join(',');
+      try {
+        const empRes = await fetch(`${API}/employees?select=id,full_name,phone&id=in.(${ids})`, { headers: _headers() });
+        if (empRes.ok) {
+          const emps = await empRes.json();
+          const empMap = {};
+          (Array.isArray(emps) ? emps : []).forEach(e => { empMap[e.id] = e; });
+          order.timeline.forEach(t => {
+            if (!t.actor_name && t.actor_id && empMap[t.actor_id]) {
+              t.actor_name = empMap[t.actor_id].full_name;
+              if (!t.actor_phone) t.actor_phone = empMap[t.actor_id].phone;
+            }
+          });
+        }
+      } catch {}
+    }
+  }
   if (order.updated_by) {
     try {
-      const empRes = await fetch(`${API}/runtime_employee_capabilities?auth_user_id=eq.${order.updated_by}&select=full_name`, { headers: _headers() });
+      const empRes = await fetch(`${API}/employees?select=id,full_name&id=eq.${order.updated_by}`, { headers: _headers() });
       if (empRes.ok) {
         const empArr = await empRes.json();
         if (empArr.length > 0) order.updated_by_name = empArr[0].full_name;
@@ -102,6 +140,19 @@ export async function getInvoiceDetail(orderId) {
           order.customer_name_snapshot = cust.customer_name || '';
           order.customer_phone_snapshot = order.customer_phone_snapshot || cust.phone || '';
           order.customer_address_snapshot = order.customer_address_snapshot || cust.address || '';
+        }
+      }
+    } catch {}
+  }
+  if (!order.created_by_name_snapshot && order.id) {
+    try {
+      const ordRes = await fetch(`${API}/orders?id=eq.${order.id}&select=id,created_by_name_snapshot,created_by_phone_snapshot`, { headers: _headers() });
+      if (ordRes.ok) {
+        const ordArr = await ordRes.json();
+        const ord = ordArr[0];
+        if (ord) {
+          order.created_by_name_snapshot = ord.created_by_name_snapshot || '';
+          order.created_by_phone_snapshot = order.created_by_phone_snapshot || ord.created_by_phone_snapshot || '';
         }
       }
     } catch {}

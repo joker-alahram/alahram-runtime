@@ -76,12 +76,18 @@ function _card(inv, actor) {
   const dateStr = created.toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'short', day: 'numeric' });
   const num = inv.order_number || inv.invoice_number || '—';
   const customerName = inv.customer_name_snapshot || '';
+  const customerPhone = inv.customer_phone_snapshot || '';
+  const customerAddress = inv.customer_address_snapshot || '';
   const ownerName = inv.owner_name_snapshot || '';
+  const repName = inv.created_by_name_snapshot || '';
+  const repPhone = inv.created_by_phone_snapshot || '';
   const status = inv.order_status || inv.workflow_status || 'pending';
   const badgeClass = _badgeClass(status);
-  const namesHtml = customerName && ownerName && customerName !== ownerName
-    ? `<div class="v2-il-customer">${_e(customerName)}</div><div class="v2-il-owner">${_e(ownerName)}</div>`
-    : `<div class="v2-il-customer">${_e(customerName || ownerName)}</div>`;
+  const docType = _docTitle(status);
+  const custInfo = customerName + (customerPhone ? ' - ' + customerPhone : '');
+  const namesHtml = `<div class="v2-il-customer">👤 ${_e(custInfo)}</div>`
+    + (customerAddress ? `<div class="v2-il-owner">📍 ${_e(customerAddress)}</div>` : '')
+    + (repName ? `<div class="v2-il-owner">🧑‍💼 ${_e(repName)}${repPhone ? ' - ' + _e(repPhone) : ''}</div>` : '');
   const canEdit = actor?.type === 'employee' && String(inv.created_by_employee_id) === String(actor?.id) && ['submitted','pending','reviewing'].includes(status);
   return `<div class="v2-il-card" data-link="#invoices/${inv.id}" tabindex="0" role="button">
     <div class="v2-il-card-inner">
@@ -95,7 +101,7 @@ function _card(inv, actor) {
         <span class="v2-il-amount">${_money(inv.total_amount)}</span>
       </div>
     </div>
-    ${canEdit ? `<button class="v2-il-edit-btn" data-action="edit" data-order-id="${inv.id}" data-customer-id="${inv.customer_id || ''}" data-customer-name="${_e(customerName)}" data-customer-phone="${_e(inv.customer_phone_snapshot || '')}" data-customer-address="${_e(inv.customer_address_snapshot || '')}">تعديل الطلب</button>` : ''}
+    ${canEdit ? `<button class="v2-il-edit-btn" data-action="edit" data-order-id="${inv.id}" data-customer-id="${inv.customer_id || ''}" data-customer-name="${_e(customerName)}" data-customer-phone="${_e(customerPhone)}" data-customer-address="${_e(customerAddress)}">تعديل الطلب</button>` : ''}
   </div>`;
 }
 
@@ -149,3 +155,7 @@ async function _handleEdit(e) {
 
 function _e(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function _money(n) { if (n == null) return ''; return Number(n).toLocaleString('en-US') + ' ج.م'; }
+function _docTitle(status) {
+  const s = String(status || '').trim().toLowerCase();
+  return ['pending', 'reviewing', 'submitted'].includes(s) ? 'طلب شراء' : 'فاتورة';
+}

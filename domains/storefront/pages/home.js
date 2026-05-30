@@ -127,7 +127,7 @@ export async function renderHome(contentEl) {
       <div class="v2-home-section-header"><h2>الأكثر طلباً</h2><a href="#products">عرض الكل</a></div>
       <div class="v2-home-grid">${mostRequested.slice(0, 6).map(p => `<a href="#products/${p.product_id}" class="v2-home-product-card v2-home-product-card-sm">
         <div class="v2-home-product-body">
-          <div class="v2-home-product-name" style="font-size:.8125rem">${_e(p.product_name_snapshot || p.product_id?.slice(0, 8) || '')}</div>
+          <div class="v2-home-product-name" style="font-size:.8125rem">${_e(p.product_name_snapshot || 'منتج')}</div>
           <div class="v2-home-product-price">${_n(p.count || 0)} طلب</div>
         </div>
       </a>`).join('')}</div>

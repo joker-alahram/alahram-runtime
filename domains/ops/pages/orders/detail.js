@@ -6,6 +6,7 @@ import { getAllowedTransitions, canExecuteTransition } from '../../../../service
 import { getIdentity } from '../../../../services/storefront/governanceRuntime.js';
 import { buildInvoiceViewModel } from '../../../../services/storefront/invoiceViewModel.js';
 import { buildCanonicalInvoiceHtml, _e, _money } from '../../../../services/storefront/canonicalInvoice.js';
+import { renderInvoiceHtml, printInvoice, printInvoiceA5 } from '../../../../services/storefront/pdfService.js';
 
 const STATUS_LABELS = {
   submitted: 'مُقدم', reserved: 'محجوز',
@@ -56,6 +57,11 @@ export async function renderOrderDetail(container, { orderId }) {
   el.innerHTML = `<a href="#ops/orders" class="v2-od-back">← العودة للطلبات</a>
     ${buildCanonicalInvoiceHtml(vm)}
 
+    <div class="v2-com-actions" style="margin:0 2rem 1rem;display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="v2-com-btn v2-com-btn-pdf" id="v2-od-pdf-a4">🖨️ PDF A4</button>
+      <button class="v2-com-btn v2-com-btn-pdf" id="v2-od-pdf-a5" style="background:#059669">📱 PDF A5</button>
+    </div>
+
     <!-- Workflow Timeline -->
     ${order.order_status !== 'cancelled' ? `<div class="v2-com-timeline v2-od-tl-slim">
       <div class="v2-com-tl-title">🔄 سير العمل</div>
@@ -71,6 +77,15 @@ export async function renderOrderDetail(container, { orderId }) {
 
     ${actionsHtml}
   </div>`;
+
+  el.querySelector('#v2-od-pdf-a4')?.addEventListener('click', () => {
+    const html = renderInvoiceHtml(vm);
+    printInvoice(html);
+  });
+
+  el.querySelector('#v2-od-pdf-a5')?.addEventListener('click', () => {
+    printInvoiceA5(vm);
+  });
 
   el.querySelectorAll('[data-action]').forEach(btn => {
     btn.addEventListener('click', async () => {
